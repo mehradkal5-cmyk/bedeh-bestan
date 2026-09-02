@@ -46,7 +46,7 @@ test('defines a complete semantic light theme and reduced-motion ticker fallback
 
 test('keeps enhancement assets available offline with a new cache version', () => {
   const sw = read('sw.js');
-  assert.match(sw, /bedeh-bestan-v27/);
+  assert.match(sw, /bedeh-bestan-v28/);
   assert.match(sw, /product-core\.js/);
   assert.match(sw, /product-enhancements\.js/);
   assert.match(sw, /product-enhancements\.css/);
