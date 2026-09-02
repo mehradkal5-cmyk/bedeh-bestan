@@ -1,0 +1,1 @@
+This project uses backend-client.js with Vite. Delete this placeholder after moving static assets into a src/ directory if desired.

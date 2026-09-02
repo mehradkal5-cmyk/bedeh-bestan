@@ -1,0 +1,8 @@
+.env
+.env.local
+.supabase/
+node_modules/
+.npm-cache/
+dist/
+.playwright-cli/
+supabase/.temp/

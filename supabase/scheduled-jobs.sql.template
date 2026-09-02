@@ -1,0 +1,22 @@
+-- Run this only after storing REMINDER_CRON_SECRET in Supabase Vault and
+-- replacing the project reference. Keep both values server-side.
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+-- Store the secret once (run in the SQL editor):
+-- select vault.create_secret('YOUR_REMINDER_CRON_SECRET', 'bedeh_bestan_reminder_cron_secret');
+-- Then schedule at 08:05 Asia/Tehran. PostgreSQL cron uses UTC: 04:35 UTC when Tehran is +03:30.
+select cron.schedule(
+  'bedeh-bestan-due-reminders',
+  '35 4 * * *',
+  $job$
+    select net.http_post(
+      url := 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/reminders',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'x-cron-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'bedeh_bestan_reminder_cron_secret')
+      ),
+      body := '{}'::jsonb
+    );
+  $job$
+);

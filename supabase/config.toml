@@ -1,0 +1,16 @@
+project_id = "bedeh-bestan"
+
+[functions.shared-record]
+verify_jwt = false
+
+[functions.recipient-action]
+verify_jwt = false
+
+[functions.card-access]
+verify_jwt = false
+
+[functions.record-command]
+verify_jwt = false
+
+[functions.reminders]
+verify_jwt = false
