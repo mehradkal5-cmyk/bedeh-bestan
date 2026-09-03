@@ -1,5 +1,8 @@
 project_id = "bedeh-bestan"
 
+[auth.email]
+enable_confirmations = false
+
 [functions.shared-record]
 verify_jwt = false
 

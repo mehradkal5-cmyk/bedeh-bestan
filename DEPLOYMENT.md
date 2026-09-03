@@ -29,9 +29,9 @@ No other environment variable is copied to the browser. Do not place service-rol
 database, card-encryption or reminder secrets in either variable or runtime file.
 Runtime config uses `Cache-Control: no-store` and is never stored by the PWA cache.
 
-Supabase Auth's production Site URL / Redirect URLs must include the intended
-production origin before production confirmation links are used. This build fix
-does not change remote Auth, CORS, SMTP, RLS or Edge Function settings.
+Supabase Auth must keep Email/Password enabled and `Confirm email` disabled for
+the direct account flow. The browser accepts only a real Supabase access session;
+the build does not bypass Auth, CORS, RLS or Edge Function authorization.
 
 ## Cloudflare Workers Builds
 

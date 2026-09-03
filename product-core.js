@@ -83,8 +83,7 @@
   const formatPersianYear = (year) => String(Math.trunc(Number(year))).replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[digit]);
   const signupState = (payload) => {
     const user = payload?.user || payload;
-    if (!user?.id) return 'failed';
-    return payload?.access_token ? 'authenticated' : 'pending';
+    return user?.id && payload?.access_token ? 'authenticated' : 'failed';
   };
 
   const tips = Object.freeze([

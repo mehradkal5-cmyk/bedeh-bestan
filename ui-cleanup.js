@@ -19,7 +19,7 @@
   ]);
   const icons = [
     ['خانه', 'house'], ['همه', 'house'], ['بده‌بستان‌ها', 'gift'], ['امانت‌ها', 'handshake'], ['قرض‌ها', 'banknote'], ['دنگ‌ها', 'users-three'],
-    ['اعلان‌ها', 'bell'], ['تنظیمات', 'gear-six'], ['ثبت جدید', 'plus'], ['نمایش QR', 'qr-code'],
+    ['اعلان‌ها', 'bell'], ['تنظیمات', 'gear-six'], ['ثبت جدید', 'plus'], ['ثبت بده‌بستان', 'plus'], ['نمایش QR', 'qr-code'],
     ['کپی لینک', 'copy'], ['کپی شماره کارت', 'copy'], ['اشتراک‌گذاری', 'share-network'],
     ['تغییر موعد', 'calendar-clock'], ['موعد گذشته', 'warning-circle'], ['تسویه شد', 'check-circle'],
     ['لینک غیرفعال', 'link-break'], ['غیرفعال‌سازی', 'link-break'], ['ویرایش', 'pencil-simple'],

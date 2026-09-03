@@ -41,10 +41,9 @@ test('frontend bundles never contain a service-role credential', () => {
   }
 });
 
-test('signup and resend both include an explicit confirmation redirect', () => {
+test('signup uses direct password auth without email-link recovery methods', () => {
   const source = read('backend-client.js');
-  assert.match(source, /auth\/v1\/signup\?redirect_to=/);
-  assert.match(source, /async resendConfirmation/);
-  assert.match(source, /auth\/v1\/resend\?redirect_to=/);
-  assert.match(source, /type:\s*'signup'/);
+  assert.match(source, /auth\/v1\/signup/);
+  assert.match(source, /grant_type=password/);
+  assert.doesNotMatch(source, /auth\/v1\/resend|async resendConfirmation|auth\/v1\/otp|async sendMagicLink/);
 });

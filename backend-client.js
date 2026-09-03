@@ -12,7 +12,7 @@
   const configured = Boolean(base && anon && !base.includes('your-project'));
   const localizedError = (message) => ({
     'Invalid login credentials': 'ایمیل یا رمز عبور درست نیست.',
-    'Email not confirmed': 'ابتدا ایمیل خود را تأیید کنید.',
+    'Email not confirmed': 'ورود این حساب هنوز فعال نشده است.',
     'User already registered': 'این ایمیل قبلاً ثبت شده است.',
     'Email address not authorized': 'ارسال ایمیل برای این نشانی مجاز نیست؛ تنظیمات SMTP پروژه باید بررسی شود.',
     'email rate limit exceeded': 'سقف ارسال ایمیل پر شده است؛ کمی بعد دوباره تلاش کنید.',
@@ -58,7 +58,7 @@
     const params = new URLSearchParams(location.hash.replace(/^#/, ''));
     if (params.has('error') || params.has('error_code')) {
       history.replaceState(null, '', `${location.pathname}${location.search}`);
-      const error = new Error('لینک تأیید نامعتبر یا منقضی شده است. ایمیل تازه درخواست کنید.');
+      const error = new Error('لینک قدیمی ورود نامعتبر یا منقضی شده است.');
       error.code = 'confirmation_link_invalid';
       throw error;
     }
@@ -74,8 +74,6 @@
   const requireConfig = () => {
     if (!configured) throw new Error('اتصال Supabase پیکربندی نشده است.');
   };
-  const confirmationRedirect = () => `${location.origin}${location.pathname}`;
-
   const invoke = async (name, body, requiresSession = false) => {
     requireConfig();
     const user = requiresSession ? await window.BedehBackend.session() : null;
@@ -149,7 +147,7 @@
 
     async signUp({ displayName, email, password }) {
       requireConfig();
-      const body = await response(await fetch(`${base}/auth/v1/signup?redirect_to=${encodeURIComponent(confirmationRedirect())}`, {
+      const body = await response(await fetch(`${base}/auth/v1/signup`, {
         method: 'POST',
         headers: jsonHeaders(),
         body: JSON.stringify({
@@ -162,15 +160,6 @@
       return { ...body, user: body.user || (body.id ? body : null) };
     },
 
-    async resendConfirmation(email) {
-      requireConfig();
-      return response(await fetch(`${base}/auth/v1/resend?redirect_to=${encodeURIComponent(confirmationRedirect())}`, {
-        method: 'POST',
-        headers: jsonHeaders(),
-        body: JSON.stringify({ email: normalizedEmail(email), type: 'signup' }),
-      }));
-    },
-
     async signIn({ email, password }) {
       requireConfig();
       const body = await response(await fetch(`${base}/auth/v1/token?grant_type=password`, {
@@ -180,15 +169,6 @@
       }));
       storeSession(body);
       return body;
-    },
-
-    async sendMagicLink(email) {
-      requireConfig();
-      await response(await fetch(`${base}/auth/v1/otp?redirect_to=${encodeURIComponent(confirmationRedirect())}`, {
-        method: 'POST',
-        headers: jsonHeaders(),
-        body: JSON.stringify({ email: normalizedEmail(email), create_user: true }),
-      }));
     },
 
     async signOut() {

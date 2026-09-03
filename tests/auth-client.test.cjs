@@ -21,13 +21,13 @@ function clientWithResponse(payload, status = 200) {
   return { client: context.window.BedehBackend, calls, stored, context };
 }
 
-test('normalizes raw Supabase pending user without creating a session', async () => {
+test('does not fabricate a session when Supabase omits signup tokens', async () => {
   const { client, calls, stored } = clientWithResponse({ id: 'user-id', email: 'person@example.test' });
   const result = await client.signUp({ displayName: 'User', email: 'Person@example.test', password: 'Example123' });
   assert.equal(result.user.id, 'user-id');
   assert.equal(result.access_token, undefined);
   assert.equal(stored.size, 0);
-  assert.equal(new URL(calls[0].url).searchParams.get('redirect_to'), 'http://127.0.0.1:4173/');
+  assert.equal(new URL(calls[0].url).searchParams.get('redirect_to'), null);
   assert.equal(JSON.parse(calls[0].body).email, 'person@example.test');
 });
 
@@ -38,23 +38,10 @@ test('stores a real authenticated signup session only when tokens are returned',
   assert.equal(stored.get('bedeh-bestan.auth.access-token'), 'test-access');
 });
 
-test('resends signup confirmation through Auth with the correct redirect', async () => {
-  const { client, calls } = clientWithResponse({});
-  await client.resendConfirmation('Person@example.test');
-  assert.equal(new URL(calls[0].url).pathname, '/auth/v1/resend');
-  assert.equal(new URL(calls[0].url).searchParams.get('redirect_to'), 'http://127.0.0.1:4173/');
-  assert.deepEqual(JSON.parse(calls[0].body), { email: 'person@example.test', type: 'signup' });
-});
-
-test('surfaces SMTP rejection without claiming email was sent', async () => {
-  const { client } = clientWithResponse({ msg: 'Email address not authorized' }, 400);
-  await assert.rejects(client.resendConfirmation('person@example.test'), /SMTP/);
-});
-
-test('invalid resend email never reaches the network', async () => {
-  const { client, calls } = clientWithResponse({});
-  await assert.rejects(client.resendConfirmation('not-an-email'), /ایمیل معتبر نیست/);
-  assert.equal(calls.length, 0);
+test('ships password auth without confirmation resend or magic-link methods', () => {
+  const { client } = clientWithResponse({});
+  assert.equal(client.resendConfirmation, undefined);
+  assert.equal(client.sendMagicLink, undefined);
 });
 
 test('preserves the exact server status and code for an unconfirmed account', async () => {
@@ -62,7 +49,7 @@ test('preserves the exact server status and code for an unconfirmed account', as
   await assert.rejects(client.signIn({ email: 'person@example.test', password: 'Example123' }), (error) => {
     assert.equal(error.code, 'email_not_confirmed');
     assert.equal(error.status, 400);
-    assert.equal(error.message, 'ابتدا ایمیل خود را تأیید کنید.');
+    assert.equal(error.message, 'ورود این حساب هنوز فعال نشده است.');
     return true;
   });
 });

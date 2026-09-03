@@ -13,6 +13,16 @@
   --surface-overlay:color-mix(in srgb,var(--bg) 94%,transparent);
 }
 
+::selection{background:color-mix(in srgb,var(--primary) 40%,transparent);color:var(--primary-text)}
+html{scrollbar-color:var(--border-strong) var(--bg);scrollbar-gutter:stable}
+*{scrollbar-width:thin}
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-track{background:var(--bg)}
+*::-webkit-scrollbar-thumb{border:3px solid var(--bg);border-radius:999px;background:var(--border-strong)}
+input,select,textarea{caret-color:var(--primary)}
+dialog::backdrop{background:color-mix(in srgb,#000 72%,transparent);backdrop-filter:blur(3px)}
+dialog:has(#account-form){width:min(460px,calc(100% - 24px))}
+
 :root[data-theme="light"]{
   --bg:#f4f6f8;
   --surface:#ffffff;
@@ -64,6 +74,7 @@
 }
 
 .topbar-icon-only{position:relative;flex:0 0 44px;width:44px;min-width:44px;padding:0;font-size:1.25rem}
+.topbar-icon-only:active,.tip-ticker__toggle:active,.password-control__toggle:active{border-color:var(--border-strong);background:var(--primary-soft);color:var(--primary)}
 .notification-dot{position:absolute;top:8px;inset-inline-start:8px;width:7px;height:7px;border:2px solid var(--bg);border-radius:50%;background:var(--cyan)}
 
 .tip-ticker{
@@ -104,9 +115,17 @@
 .account-setting{flex-wrap:wrap}
 .account-setting__error{flex-basis:100%;margin:0}
 .account-setting__error:empty{display:none}
-.auth-tabs{display:flex;gap:var(--s2);margin-bottom:var(--s5)}
+.auth-tabs{display:grid;grid-template-columns:1fr 1fr;gap:var(--s2);margin-bottom:var(--s5)}
+.auth-tabs .tab{min-height:44px}
 .account-form{display:grid;gap:var(--s4)}
+.account-form .field-error{margin:calc(var(--s2) * -1) 0 0}
 .account-form .field-error:empty{display:none}
+.account-submit{width:100%;min-height:48px;gap:var(--s2)}
+.account-submit i{font-size:1.15rem}
+.password-control{position:relative}
+.password-control input{padding-inline-end:52px}
+.password-control__toggle{position:absolute;top:50%;inset-inline-end:2px;min-width:44px;color:var(--secondary-text);transform:translateY(-50%)}
+.password-control__toggle:hover{background:var(--primary-soft);color:var(--primary)}
 
 .optional-label{color:var(--secondary-text);font-size:.76rem;font-weight:500}
 .payment-entries{display:grid;gap:var(--s2)}

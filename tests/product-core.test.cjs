@@ -36,9 +36,9 @@ test('formats Jalali years without thousands separators', () => {
   assert.doesNotMatch(core.formatPersianYear(1405), /[,٬]/);
 });
 
-test('distinguishes a pending confirmation from an authenticated signup', () => {
-  assert.equal(core.signupState({ user: { id: 'u1' } }), 'pending');
-  assert.equal(core.signupState({ id: 'u1' }), 'pending');
+test('accepts only an authenticated signup session', () => {
+  assert.equal(core.signupState({ user: { id: 'u1' } }), 'failed');
+  assert.equal(core.signupState({ id: 'u1' }), 'failed');
   assert.equal(core.signupState({ user: { id: 'u1' }, access_token: 'token' }), 'authenticated');
   assert.equal(core.signupState({}), 'failed');
 });

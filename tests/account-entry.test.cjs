@@ -3,9 +3,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-function accountHarness({ user = null, onboarded = false, pendingEmail = '', hash = '', failure = null } = {}) {
+function accountHarness({ user = null, onboarded = false, stalePendingEmail = '', hash = '', failure = null } = {}) {
   const local = new Map(onboarded ? [['bedeh-bestan.auth.onboarded', 'true']] : []);
-  const session = new Map(pendingEmail ? [['bedeh-bestan.auth.pending-email', pendingEmail]] : []);
+  const session = new Map(stalePendingEmail ? [['bedeh-bestan.auth.pending-email', stalePendingEmail]] : []);
   const storage = (map) => ({ getItem: (key) => map.get(key) || null, setItem: (key, value) => map.set(key, value), removeItem: (key) => map.delete(key) });
   const sheets = [];
   const calls = [];
@@ -46,17 +46,18 @@ test('registered signed-out users are not shown automatic signup again', async (
   assert.equal(harness.calls.includes('dashboard'), false);
 });
 
-test('pending confirmation is managed in Settings without reopening signup', async () => {
-  const harness = accountHarness({ onboarded: true, pendingEmail: 'person@example.test' });
+test('stale confirmation state is discarded without changing the current page', async () => {
+  const harness = accountHarness({ onboarded: true, stalePendingEmail: 'person@example.test' });
   await harness.run();
-  assert.equal(harness.context.active, 'settings');
+  assert.equal(harness.context.active, 'home');
+  assert.equal(harness.session.has('bedeh-bestan.auth.pending-email'), false);
   assert.equal(harness.sheets.length, 0);
 });
 
-test('confirmation return clears pending state and loads authenticated data', async () => {
-  const harness = accountHarness({ user: { id: 'test-user', email: 'person@example.test' }, pendingEmail: 'person@example.test' });
+test('authenticated signup loads data immediately without a confirmation screen', async () => {
+  const harness = accountHarness({ user: { id: 'test-user', email: 'person@example.test' }, stalePendingEmail: 'person@example.test' });
   await harness.run();
-  assert.equal(harness.context.active, 'settings');
+  assert.equal(harness.context.active, 'home');
   assert.equal(harness.local.get('bedeh-bestan.auth.onboarded'), 'true');
   assert.equal(harness.session.has('bedeh-bestan.auth.pending-email'), false);
   assert.equal(harness.sheets.length, 0);
@@ -70,15 +71,21 @@ test('recipient share access never forces signup', async () => {
   assert.deepEqual(harness.sheets, []);
 });
 
-test('invalid confirmation callback opens email recovery instead of signup', async () => {
+test('old invalid confirmation links fall back to password login without resend controls', async () => {
   const failure = Object.assign(new Error('لینک تأیید نامعتبر یا منقضی شده است.'), { code: 'confirmation_link_invalid' });
   const harness = accountHarness({ failure });
   await harness.run();
   assert.equal(harness.sheets.length, 1);
-  assert.match(harness.sheets[0].html, /id="confirmation-resend-form"/);
-  assert.match(harness.sheets[0].html, /لینک تأیید نامعتبر/);
-  assert.doesNotMatch(harness.sheets[0].html, /name="password"/);
+  assert.match(harness.sheets[0].html, /data-mode="login"/);
+  assert.match(harness.sheets[0].html, /لینک قدیمی دیگر لازم نیست/);
+  assert.match(harness.sheets[0].html, /name="password"/);
+  assert.doesNotMatch(harness.sheets[0].html, /data-resend-confirmation/);
   assert.equal(harness.calls.includes('dashboard'), false);
+});
+
+test('account UI contains no confirmation-code or resend workflow', () => {
+  const source = fs.readFileSync(require.resolve('../product-enhancements.js'), 'utf8');
+  assert.doesNotMatch(source, /confirmation-resend-form|data-resend-confirmation|pendingEmailKey/);
 });
 
 test('network failure does not reopen registration or mark onboarding complete', async () => {

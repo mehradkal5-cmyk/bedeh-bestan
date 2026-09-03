@@ -22,10 +22,8 @@
   let activeReceiptRecordId = '';
   let syncing = false;
   let tickerPaused = false;
-  let resendAfter = 0;
   const onboardedKey = 'bedeh-bestan.auth.onboarded';
-  const pendingEmailKey = 'bedeh-bestan.auth.pending-email';
-  const pendingEmail = () => sessionStorage.getItem(pendingEmailKey) || '';
+  const legacyPendingEmailKey = 'bedeh-bestan.auth.pending-email';
   const hasOnboarded = () => localStorage.getItem(onboardedKey) === 'true';
 
   const icon = (name, filled = false) => `<i class="ph${filled ? '-fill' : ''} ph-${name}" aria-hidden="true"></i>`;
@@ -76,6 +74,30 @@
       notifications.classList.add('topbar-icon-only');
     }
     document.querySelector('.top-meta')?.remove();
+    document.querySelectorAll('.nav [data-nav]').forEach((item) => {
+      if (item.classList.contains('active')) item.setAttribute('aria-current', 'page');
+      else item.removeAttribute('aria-current');
+    });
+  }
+
+  let dialogSignature = '';
+
+  function enhanceDialog(root = document) {
+    const dialog = root.matches?.('dialog') ? root : root.querySelector?.('dialog#sheet');
+    if (!dialog || !dialog.open) return;
+    const signature = dialog.innerHTML;
+    if (signature === dialogSignature) return;
+    const closeButton = dialog.querySelector('[data-close], .close-btn');
+    if (closeButton) {
+      closeButton.innerHTML = icon('x');
+      closeButton.setAttribute('aria-label', 'بستن');
+      closeButton.title = 'بستن';
+    }
+    dialogSignature = dialog.innerHTML;
+    requestAnimationFrame(() => {
+      const firstField = dialog.querySelector('input:not([type="hidden"]):not([aria-hidden="true"]), select, textarea');
+      firstField?.focus({ preventScroll: true });
+    });
   }
 
   function addTicker() {
@@ -155,7 +177,7 @@
   }
 
   function accountLabel() {
-    return currentUser?.user_metadata?.display_name || currentUser?.email || (pendingEmail() ? 'در انتظار تأیید ایمیل' : 'حساب کاربری');
+    return currentUser?.user_metadata?.display_name || currentUser?.email || 'حساب کاربری';
   }
 
   function addAccountSetting() {
@@ -165,22 +187,19 @@
     const row = document.createElement('div');
     row.className = 'setting-row account-setting';
     row.dataset.accountSetting = 'true';
-    row.innerHTML = `<div class="account-setting__identity">${icon('user-circle')}<div><strong>${htmlEscape(accountLabel())}</strong>${!currentUser && pendingEmail() ? `<small dir="ltr">${htmlEscape(pendingEmail())}</small>` : ''}</div></div><div class="account-setting__actions">${!currentUser && pendingEmail() ? '<button type="button" class="secondary-btn" data-resend-confirmation>ارسال دوباره</button>' : ''}<button type="button" class="${pendingEmail() && !currentUser ? 'ghost-btn' : 'secondary-btn'}" data-account-action>${currentUser ? 'مدیریت حساب' : 'ورود'}</button></div><p class="field-error account-setting__error" role="alert"></p>`;
+    row.innerHTML = `<div class="account-setting__identity">${icon('user-circle')}<div><strong>${htmlEscape(accountLabel())}</strong>${currentUser?.email && currentUser.email !== accountLabel() ? `<small dir="ltr">${htmlEscape(currentUser.email)}</small>` : ''}</div></div><div class="account-setting__actions"><button type="button" class="secondary-btn" data-account-action>${currentUser ? 'مدیریت حساب' : 'ورود'}</button></div><p class="field-error account-setting__error" role="alert"></p>`;
     panel.prepend(row);
   }
 
   function showAccount(mode = currentUser ? 'manage' : hasOnboarded() ? 'login' : 'register', message = '') {
-    if (mode === 'confirm') {
-      showSheet('تأیید ایمیل', `<form id="confirmation-resend-form" class="account-form" novalidate><p class="field-error" role="alert">${htmlEscape(message)}</p><div class="field"><label for="confirmation-email">ایمیل</label><input id="confirmation-email" name="email" type="email" autocomplete="email" dir="ltr" required value="${htmlEscape(pendingEmail())}"></div><button type="submit" class="primary-btn" data-resend-confirmation>${icon('envelope')} درخواست لینک تازه</button><button type="button" class="ghost-btn" data-auth-mode="login">ورود به حساب</button></form>`);
-      return;
-    }
     if (mode === 'manage' && currentUser) {
       showSheet('حساب کاربری', `<div class="account-form"><strong>${htmlEscape(accountLabel())}</strong><span dir="ltr">${htmlEscape(currentUser.email || '')}</span><button class="secondary-btn" type="button" data-sign-out>${icon('sign-out')} خروج از حساب</button></div>`);
       return;
     }
     const registering = mode === 'register';
-    const form = `<div class="auth-tabs" role="group" aria-label="حساب کاربری"><button type="button" class="tab${!registering ? ' active' : ''}" data-auth-mode="login" aria-pressed="${!registering}">ورود</button><button type="button" class="tab${registering ? ' active' : ''}" data-auth-mode="register" aria-pressed="${registering}">ساخت حساب</button></div><form id="account-form" class="account-form" data-mode="${registering ? 'register' : 'login'}" novalidate>${registering ? '<div class="field"><label for="account-name">نام کاربری</label><input id="account-name" name="displayName" autocomplete="nickname" required maxlength="80"></div>' : ''}<div class="field"><label for="account-email">ایمیل</label><input id="account-email" name="email" type="email" autocomplete="email" value="${htmlEscape(pendingEmail())}" dir="ltr" required></div><div class="field"><label for="account-password">رمز عبور</label><input id="account-password" name="password" type="password" autocomplete="${registering ? 'new-password' : 'current-password'}" minlength="8" required aria-describedby="account-error"></div><p class="field-error" id="account-error" role="alert"></p><button class="primary-btn account-submit" type="submit">${registering ? 'ساخت حساب' : 'ورود'}</button>${pendingEmail() && !registering ? '<button class="secondary-btn" type="button" data-resend-confirmation>ارسال دوبارهٔ ایمیل تأیید</button>' : ''}</form>`;
+    const form = `<div class="auth-tabs" role="group" aria-label="حساب کاربری"><button type="button" class="tab${!registering ? ' active' : ''}" data-auth-mode="login" aria-pressed="${!registering}">ورود</button><button type="button" class="tab${registering ? ' active' : ''}" data-auth-mode="register" aria-pressed="${registering}">ساخت حساب</button></div><form id="account-form" class="account-form" data-mode="${registering ? 'register' : 'login'}" novalidate>${registering ? '<div class="field"><label for="account-name">نام کاربری</label><input id="account-name" name="displayName" autocomplete="nickname" required maxlength="80"></div>' : ''}<div class="field"><label for="account-email">ایمیل</label><input id="account-email" name="email" type="email" autocomplete="email" dir="ltr" required></div><div class="field"><label for="account-password">رمز عبور</label><div class="password-control"><input id="account-password" name="password" type="password" autocomplete="${registering ? 'new-password' : 'current-password'}" minlength="8" required aria-describedby="account-error"><button type="button" class="icon-btn password-control__toggle" data-password-toggle aria-label="نمایش رمز عبور" aria-pressed="false">${icon('eye')}</button></div></div><p class="field-error" id="account-error" role="alert">${htmlEscape(message)}</p><button class="primary-btn account-submit" type="submit">${registering ? `${icon('user-plus')} ساخت حساب` : `${icon('sign-in')} ورود`}</button></form>`;
     if (typeof showSheet === 'function') showSheet('حساب کاربری', form);
+    enhanceDialog(document);
   }
 
   async function submitAccount(form) {
@@ -191,7 +210,15 @@
     const mode = form.dataset.mode;
     const password = String(data.get('password') || '');
     error.textContent = '';
-    if (!form.checkValidity()) return form.reportValidity();
+    if (!form.checkValidity()) {
+      const invalid = form.querySelector(':invalid');
+      if (invalid) {
+        invalid.setAttribute('aria-invalid', 'true');
+        error.textContent = invalid.name === 'displayName' ? 'نام کاربری را وارد کنید.' : invalid.name === 'email' ? 'ایمیل معتبر وارد کنید.' : 'رمز عبور را کامل وارد کنید.';
+        invalid.focus({ preventScroll: true });
+      }
+      return;
+    }
     if (mode === 'register') {
       const passwordMessage = core.passwordError(password);
       if (passwordMessage) {
@@ -208,65 +235,21 @@
         ? await backend.signUp({ displayName: data.get('displayName'), email: data.get('email'), password })
         : await backend.signIn({ email: data.get('email'), password });
       const status = core.signupState(result);
-      if (status === 'failed' || (mode !== 'register' && status !== 'authenticated')) throw new Error('ورود تأیید نشد؛ دوباره تلاش کنید.');
+      if (status !== 'authenticated') throw new Error(mode === 'register' ? 'ساخت حساب کامل نشد؛ دوباره تلاش کنید.' : 'ورود انجام نشد؛ دوباره تلاش کنید.');
       localStorage.setItem(onboardedKey, 'true');
-      if (status === 'pending') {
-        currentUser = null;
-        sessionStorage.setItem(pendingEmailKey, String(data.get('email')).trim().toLowerCase());
-        resendAfter = Date.now() + 60000;
-      } else {
-        currentUser = result.user;
-        sessionStorage.removeItem(pendingEmailKey);
-      }
+      currentUser = result.user;
+      sessionStorage.removeItem(legacyPendingEmailKey);
       sheet.close();
-      if (typeof active !== 'undefined') active = 'settings';
       if (typeof render === 'function') render();
-      notify(status === 'pending' ? 'درخواست ایمیل تأیید ثبت شد؛ صندوق ورودی و اسپم را بررسی کنید.' : 'وارد حساب شدید.');
-      if (status === 'authenticated') await syncFromBackend();
+      notify(mode === 'register' ? 'حساب ساخته شد و وارد شدید.' : 'وارد حساب شدید.');
+      await syncFromBackend();
     } catch (failure) {
       error.textContent = failure.message;
-      if (failure.code === 'email_not_confirmed' || failure.message === 'ابتدا ایمیل خود را تأیید کنید.') {
-        sessionStorage.setItem(pendingEmailKey, String(data.get('email')).trim().toLowerCase());
-        localStorage.setItem(onboardedKey, 'true');
-        if (!form.querySelector('[data-resend-confirmation]')) form.insertAdjacentHTML('beforeend', '<button class="secondary-btn" type="button" data-resend-confirmation>ارسال دوبارهٔ ایمیل تأیید</button>');
-      }
     } finally {
       submit.disabled = false;
       delete form.dataset.busy;
       submit.removeAttribute('aria-busy');
-      submit.textContent = mode === 'register' ? 'ساخت حساب' : 'ورود';
-    }
-  }
-
-  async function resendConfirmation(button) {
-    if (button.disabled) return;
-    const form = button.closest('form');
-    const error = form?.querySelector('.field-error') || document.querySelector('.account-setting__error');
-    if (error) error.textContent = '';
-    const remainingSeconds = Math.ceil((resendAfter - Date.now()) / 1000);
-    if (remainingSeconds > 0) {
-      const message = `${persianNumber(remainingSeconds)} ثانیه دیگر دوباره تلاش کنید.`;
-      if (error) error.textContent = message;
-      else notify(message);
-      return;
-    }
-    const email = form?.querySelector('[name="email"]')?.value || pendingEmail();
-    const label = button.innerHTML;
-    button.disabled = true;
-    button.setAttribute('aria-busy', 'true');
-    button.textContent = 'در حال درخواست…';
-    try {
-      await backend.resendConfirmation(email);
-      sessionStorage.setItem(pendingEmailKey, email.trim().toLowerCase());
-      resendAfter = Date.now() + 60000;
-      notify('درخواست ارسال دوباره ثبت شد.');
-    } catch (failure) {
-      if (error) error.textContent = failure.message;
-      else notify(failure.message);
-    } finally {
-      button.disabled = false;
-      button.removeAttribute('aria-busy');
-      button.innerHTML = label;
+      submit.innerHTML = mode === 'register' ? `${icon('user-plus')} ساخت حساب` : `${icon('sign-in')} ورود`;
     }
   }
 
@@ -277,19 +260,18 @@
       currentUser = await backend.session();
     } catch (error) {
       if (error.code !== 'confirmation_link_invalid') throw error;
-      showAccount('confirm', error.message);
+      sessionStorage.removeItem(legacyPendingEmailKey);
+      showAccount('login', 'لینک قدیمی دیگر لازم نیست؛ با ایمیل و رمز عبور وارد شوید.');
       return;
     }
     if (currentUser) {
       localStorage.setItem(onboardedKey, 'true');
-      const returningFromConfirmation = Boolean(pendingEmail());
-      sessionStorage.removeItem(pendingEmailKey);
-      if (returningFromConfirmation && typeof active !== 'undefined') active = 'settings';
+      sessionStorage.removeItem(legacyPendingEmailKey);
       await syncFromBackend();
     } else if (!hasOnboarded()) {
       showAccount('register');
     } else {
-      if (pendingEmail() && typeof active !== 'undefined') active = 'settings';
+      sessionStorage.removeItem(legacyPendingEmailKey);
       if (typeof render === 'function') render();
     }
   }
@@ -496,6 +478,7 @@
     if (repayment) enhanceRepaymentForm(repayment);
     addPaymentEntries();
     cleanInvalidLegacyLabels(root);
+    enhanceDialog(root);
   }
 
   document.addEventListener('click', async (event) => {
@@ -530,10 +513,17 @@
       tickerToggle.innerHTML = icon(paused ? 'play' : 'pause');
       return;
     }
-    const resendButton = event.target.closest('[data-resend-confirmation]');
-    if (resendButton) {
+    const passwordToggle = event.target.closest('[data-password-toggle]');
+    if (passwordToggle) {
       event.preventDefault();
-      await resendConfirmation(resendButton);
+      const input = passwordToggle.closest('.password-control')?.querySelector('input');
+      if (!input) return;
+      const revealed = input.type === 'password';
+      input.type = revealed ? 'text' : 'password';
+      passwordToggle.innerHTML = icon(revealed ? 'eye-slash' : 'eye');
+      passwordToggle.setAttribute('aria-label', revealed ? 'پنهان‌کردن رمز عبور' : 'نمایش رمز عبور');
+      passwordToggle.setAttribute('aria-pressed', String(revealed));
+      input.focus({ preventScroll: true });
       return;
     }
     const authMode = event.target.closest('[data-auth-mode]');
@@ -618,12 +608,15 @@
     if (event.target.matches('[data-setting="dark"]')) setTimeout(() => setTheme(event.target.checked ? 'dark' : 'light'), 0);
   }, true);
 
+  document.addEventListener('input', (event) => {
+    if (!event.target.closest?.('#account-form')) return;
+    event.target.removeAttribute('aria-invalid');
+    const error = document.querySelector('#account-error');
+    if (error) error.textContent = '';
+  }, true);
+
   document.addEventListener('submit', (event) => {
-    if (event.target.matches('#confirmation-resend-form')) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      resendConfirmation(event.target.querySelector('[data-resend-confirmation]'));
-    } else if (event.target.matches('#account-form')) {
+    if (event.target.matches('#account-form')) {
       event.preventDefault();
       event.stopImmediatePropagation();
       submitAccount(event.target);

@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-Delegated: vanilla HTML, CSS, and JavaScript with browser-native local persistence and PWA APIs so it runs locally without a package install.
+Vanilla HTML, CSS, and JavaScript with Supabase Auth, PostgreSQL, Edge Functions, and PWA APIs.
 
 ## Users
 
@@ -28,7 +28,7 @@ Mobile-first browser use around real-world handovers, repayments, and group bill
 
 ## Capabilities and Constraints
 
-Records items, money loans, and shared expenses; calculates balances and settlements; records partial repayments and payment claims; uses secure-looking high-entropy local share tokens; supports link revocation/replacement; stores data locally in this MVP. No money transfer, payment gateway, banking credentials, CVV2, expiry, PIN, OTP, or password collection. Browser notifications require consent and fall back to in-app reminders.
+Records items, money loans, and shared expenses; calculates balances and settlements; records partial repayments and payment claims; uses high-entropy server-side share tokens; supports link revocation/replacement; persists records in Supabase behind RLS. Account owners sign in with email and password. The product never requests banking credentials, CVV2, card expiry, PIN, OTP, or payment authorization. Browser notifications require consent and fall back to in-app reminders.
 
 ## Brand Commitments
 
