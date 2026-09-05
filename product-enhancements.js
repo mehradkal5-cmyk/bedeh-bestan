@@ -366,7 +366,7 @@
       const record = recordById(created.id);
       if (record) {
         record.shareToken = shared.token;
-        record.shareLinkId = shared.id;
+        record.shareLinkId = shared.id || record.shareLinkId;
         if (typeof save === 'function') save();
       }
       sheet.close();

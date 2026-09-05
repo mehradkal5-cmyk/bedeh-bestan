@@ -1,6 +1,7 @@
 (() => {
   const config = () => {
     const candidates = [
+      window.BEDEH_BESTAN_CONFIG,
       window.__RUNTIME_CONFIG__,
       window.RUNTIME_CONFIG,
       window.__BEDEH_RUNTIME_CONFIG__,
@@ -45,14 +46,19 @@
     }
 
     const data = await response.json().catch(() => ({}));
-    if (!response.ok || data.ok === false) throw new Error(data.error || 'عملیات انجام نشد.');
-    return data;
+    if (!response.ok || data.ok === false) {
+      const error = new Error(data.error || 'عملیات انجام نشد.');
+      error.code = data.code;
+      error.status = response.status;
+      throw error;
+    }
+    return data.data;
   };
 
   window.BedehWorkflow = Object.freeze({
-    shared: (token) => invoke('shared-record', { token }),
-    recipient: (token, action, payload = {}) => invoke('recipient-action', { token, action, payload }),
+    shared: (token) => window.BedehBackend.shared(token),
+    recipient: (token, action, payload = {}) => window.BedehBackend.recipient(token, action, payload),
     creator: (action, payload = {}) => invoke('creator-action', { action, ...payload }, true),
-    command: (action, payload = {}) => invoke('record-command', { action, payload }, true),
+    command: (action, payload = {}) => window.BedehBackend.command(action, payload),
   });
 })();
