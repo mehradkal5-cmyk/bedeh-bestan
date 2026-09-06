@@ -1,0 +1,2 @@
+# The upstream browser bundle contains significant whitespace in template literals.
+supabase-browser.js -text whitespace=-blank-at-eol

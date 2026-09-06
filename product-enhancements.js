@@ -17,6 +17,11 @@
     link_revoked: 'لینک غیرفعال شد.',
     reminder_sent: 'یادآوری ارسال شد.',
     due_date_changed: 'موعد تغییر کرد.',
+    member_joined: 'عضویت در بده‌بستان ثبت شد.',
+    request_created: 'درخواست ثبت شد.',
+    request_approved: 'درخواست تأیید شد.',
+    request_rejected: 'درخواست رد شد.',
+    shares_configured: 'افراد و سهم‌های دنگ مشخص شدند.',
   };
   let currentUser = null;
   let activeReceiptRecordId = '';
@@ -65,9 +70,9 @@
     }
     const notifications = document.querySelector('[data-action="open-notifications"]');
     if (notifications) {
-      const unread = typeof state !== 'undefined' ? state.notifications.filter((item) => !item.read).length : 0;
-      const unreadKey = String(unread > 0);
-      if (notifications.dataset.productUnread !== unreadKey) notifications.innerHTML = `${icon('bell')}${unread ? '<span class="notification-dot" aria-hidden="true"></span>' : ''}`;
+      const unread = typeof state !== 'undefined' ? (state.unreadCount ?? state.notifications.filter((item) => !item.read).length) : 0;
+      const unreadKey = String(unread);
+      if (notifications.dataset.productUnread !== unreadKey) notifications.innerHTML = `${icon('bell')}${unread ? `<span class="notification-count">${persianNumber(unread)}</span>` : ''}`;
       notifications.dataset.productUnread = unreadKey;
       notifications.setAttribute('aria-label', unread ? `اعلان‌ها، ${persianNumber(unread)} خوانده‌نشده` : 'اعلان‌ها');
       notifications.title = 'اعلان‌ها';
@@ -113,6 +118,7 @@
   }
 
   function addCompletedTab() {
+    if (window.BedehUnified) return;
     const tabs = document.querySelector('main#main .tabs');
     if (!tabs || tabs.querySelector('[data-completed-filter]')) return;
     const button = document.createElement('button');
@@ -181,6 +187,7 @@
   }
 
   function addAccountSetting() {
+    if (window.BedehUnified) return;
     const heading = [...document.querySelectorAll('main#main h1')].find((node) => node.textContent.trim() === 'تنظیمات');
     const panel = heading?.closest('main')?.querySelector('.info-block');
     if (!panel || panel.querySelector('[data-account-setting]')) return;
@@ -243,6 +250,7 @@
       if (typeof render === 'function') render();
       notify(mode === 'register' ? 'حساب ساخته شد و وارد شدید.' : 'وارد حساب شدید.');
       await syncFromBackend();
+      if (window.BedehUnified) await window.BedehUnified.afterLogin();
     } catch (failure) {
       error.textContent = failure.message;
     } finally {
@@ -254,8 +262,7 @@
   }
 
   async function routeAccountEntry() {
-    // Recipients must not be forced to create a full account.
-    if (location.hash.startsWith('#share=') || new URLSearchParams(location.search).has('token')) return;
+    if (window.BedehUnified) return window.BedehUnified.start();
     try {
       currentUser = await backend.session();
     } catch (error) {
@@ -292,14 +299,24 @@
     return {
       id: record.id,
       serverId: record.id,
+      role: record.role,
+      permissions: record.permissions,
+      creatorName: record.creator_name,
+      participantId: record.participant_id,
+      sharesConfigured: record.shares_configured,
+      memberShares: record.record_participants || [],
+      requests: record.requests || [],
+      cardSummary: record.payment_cards?.[0] || null,
+      totalAmount: Number(record.amount || 0),
+      direction: record.role === 'creator' ? 'lent' : 'borrowed',
       type: record.kind,
       title: record.title,
       item: record.kind === 'item' ? record.title : '',
-      person: participants[0]?.display_name || '',
+      person: record.role === 'creator' ? participants.map((p) => p.display_name).join('، ') : record.creator_name || 'سازنده',
       participants: participants.map((participant) => participant.display_name),
-      amount: Number(record.amount || 0),
+      amount: Number(record.viewer_amount ?? record.amount ?? 0),
       currency: record.currency === 'IRT' ? 'تومان' : 'ریال',
-      due: record.due_at ? record.due_at.slice(0, 10) : '',
+      due: record.due_at ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(record.due_at)) : '',
       note: record.notes || '',
       status: record.status,
       repayments: confirmed,
@@ -314,6 +331,7 @@
   }
 
   async function syncFromBackend() {
+    if (window.BedehUnified) return window.BedehUnified.sync();
     if (syncing || !backend.configured) return;
     syncing = true;
     try {
@@ -321,7 +339,7 @@
       if (!currentUser || typeof state === 'undefined') return;
       const dashboard = await backend.command('dashboard');
       state.records = (dashboard.records || []).map(mapServerRecord);
-      const notifications = await backend.command('notifications').catch(() => ({ notifications: [] }));
+      const notifications = await backend.command('notifications');
       state.notifications = (notifications.notifications || []).map((item) => ({ id: item.id, recordId: item.record_id, title: item.title, text: item.body, read: Boolean(item.read_at) }));
       if (typeof save === 'function') save();
       if (typeof render === 'function') render();
@@ -343,11 +361,11 @@
     const data = new FormData(form);
     const kind = data.get('type');
     const amount = Number(core.asciiDigits(data.get('amount') || '').replace(/\D/g, ''));
-    const participantText = String(data.get('participants') || '').split(/[،,]/).map((part) => part.trim()).filter(Boolean).join('، ');
     const payload = {
       kind,
-      title: String(data.get('title') || data.get('item') || '').trim(),
-      recipientName: kind === 'expense' ? participantText : String(data.get('person') || '').trim(),
+      title: String(data.get('title') || data.get('item') || (kind === 'money' ? `قرض به ${data.get('person') || ''}` : '')).trim(),
+      recipientName: kind === 'expense' ? 'افراد دنگ' : String(data.get('person') || '').trim(),
+      shares: kind === 'expense' ? window.BedehUnified.parseShares(String(data.get('shares') || '')) : null,
       amount: kind === 'item' ? null : amount,
       currency: data.get('currency') === 'تومان' ? 'IRT' : 'IRR',
       dueAt: data.get('due'),
@@ -360,14 +378,16 @@
     const oldLabel = submit.innerHTML;
     submit.innerHTML = `${icon('spinner-gap')} در حال ثبت…`;
     try {
-      const created = await backend.command('create-record', payload);
+      const created = form.dataset.createdId ? { id: form.dataset.createdId } : await backend.command('create-record', payload);
+      form.dataset.createdId = created.id;
       const shared = await backend.command('create-share-link', { recordId: created.id, expiresAt: null });
+      window.BedehUnified?.rememberInvite(created.id, shared);
       await syncFromBackend();
       const record = recordById(created.id);
       if (record) {
         record.shareToken = shared.token;
         record.shareLinkId = shared.id || record.shareLinkId;
-        if (typeof save === 'function') save();
+      if (typeof save === 'function') save();
       }
       sheet.close();
       notify('رکورد ثبت شد و لینک خصوصی ساخته شد.');
@@ -430,6 +450,7 @@
   }
 
   function addPaymentEntries() {
+    if (window.BedehUnified) return;
     if (typeof state === 'undefined') return;
     const detailGrid = document.querySelector('main#main .detail-grid');
     if (!detailGrid || detailGrid.querySelector('[data-payment-entries]')) return;
@@ -648,5 +669,5 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
-  window.BedehEnhancements = { syncFromBackend, showAccount, setTheme, routeAccountEntry };
+  window.BedehEnhancements = { syncFromBackend, showAccount, setTheme, routeAccountEntry, mapServerRecord, setCurrentUser: (user) => { currentUser = user; } };
 }());

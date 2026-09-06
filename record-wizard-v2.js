@@ -10,7 +10,7 @@
   const group = (label, control, optional = false) => `<fieldset class="record-step record-step--group" data-optional="${optional}"><legend class="record-step__label">${label}</legend>${control}</fieldset>`;
   const input = (name, placeholder = '', required = false, attrs = '') => `<input id="${controlId(name)}" name="${name}" ${required ? 'required' : ''} placeholder="${esc(placeholder)}" ${attrs}>`;
   const cardStep = () => group('کارت دریافت وجه', `<div class="record-step__stack"><label class="sr-only" for="${controlId('cardNumber')}">شماره کارت</label>${input('cardNumber', 'شماره کارت ۱۶ رقمی', false, 'inputmode="numeric" maxlength="19" autocomplete="off"')}<label class="sr-only" for="${controlId('cardHolder')}">نام دارندهٔ کارت</label>${input('cardHolder', 'نام دارندهٔ کارت')}</div><span class="field-error"></span>`, true);
-  const optionalStep = () => group('جزئیات اختیاری', `<div class="record-step__stack"><label class="sr-only" for="${controlId('note')}">یادداشت</label><textarea id="${controlId('note')}" name="note" placeholder="یادداشت"></textarea><label class="sr-only" for="${controlId('reminder')}">وضعیت یادآوری</label><select id="${controlId('reminder')}" name="reminder"><option value="true">یادآوری فعال</option><option value="false">یادآوری غیرفعال</option></select></div>`, true);
+  const optionalStep = () => group('جزئیات اختیاری', `<div class="record-step__stack"><label class="sr-only" for="${controlId('note')}">یادداشت</label><textarea id="${controlId('note')}" name="note" placeholder="یادداشت"></textarea><small>یادآوری‌ها از تنظیمات حساب شما کنترل می‌شوند.</small></div>`, true);
   const steps = (type) => {
     const base = [field('نوع بده‌بستان', 'type', `<select name="type" id="wizard-type"><option value="item" ${type === 'item' ? 'selected' : ''}>امانت</option><option value="money" ${type === 'money' ? 'selected' : ''}>وام</option><option value="expense" ${type === 'expense' ? 'selected' : ''}>هزینهٔ مشترک</option></select>` )];
     if (type === 'item') return base.concat([
@@ -22,15 +22,13 @@
     if (type === 'money') return base.concat([
       field('نام شخص', 'person', input('person', 'نام شخص', true)),
       field('مبلغ', 'amount', `<div class="record-step__split">${input('amount', '۵۰۰۰۰۰', true, 'inputmode="numeric"')}<label class="sr-only" for="${controlId('currency')}">واحد پول</label><select id="${controlId('currency')}" name="currency"><option>تومان</option><option>ریال</option></select></div>`),
-      group('جهت وام', `<div class="wizard-choice"><label><input type="radio" name="direction" value="lent" checked> به او دادم</label><label><input type="radio" name="direction" value="borrowed"> از او گرفتم</label></div>`),
+      group('نقش شما', '<p>شما قرض‌دهنده هستید؛ حسابی که دعوت را می‌پذیرد قرض‌گیرنده می‌شود.</p><input type="hidden" name="direction" value="lent">'),
       field('تاریخ سررسید', 'due', input('due', '', true, `type="date" min="${today}"`)), cardStep(), optionalStep(),
     ]);
     return base.concat([
       field('عنوان هزینه', 'title', input('title', 'مثلاً اتاق فرار', true)),
       field('مبلغ کل', 'amount', `<div class="record-step__split">${input('amount', '۱۲۰۰۰۰۰', true, 'inputmode="numeric"')}<label class="sr-only" for="${controlId('currency')}">واحد پول</label><select id="${controlId('currency')}" name="currency"><option>تومان</option><option>ریال</option></select></div>`),
-      field('شرکت‌کنندگان', 'participants', input('participants', 'علی، سارا، مهدی', true)),
-      field('پرداخت‌کنندهٔ اولیه', 'payer', input('payer', 'نام شخص', true)),
-      field('روش تقسیم', 'split', `<select id="${controlId('split')}" name="split"><option value="equal">مساوی</option><option value="custom">سفارشی</option></select>`),
+      field('افراد و مبلغ سهم', 'shares', '<textarea id="wizard-shares" name="shares" required placeholder="علی: ۴۰۰۰۰۰&#10;سارا: ۸۰۰۰۰۰" aria-describedby="shares-help"></textarea><small id="shares-help">هر نفر در یک خط: نام و مبلغ سهم. جمع سهم‌ها باید برابر مبلغ کل و با همان واحد پول باشد. شما پرداخت‌کنندهٔ اولیه هستید.</small>'),
       field('تاریخ سررسید', 'due', input('due', '', true, `type="date" min="${today}"`)), cardStep(), optionalStep(),
     ]);
   };

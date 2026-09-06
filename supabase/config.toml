@@ -17,3 +17,16 @@ verify_jwt = false
 
 [functions.reminders]
 verify_jwt = false
+
+[functions.claim-share-link]
+verify_jwt = false
+[functions.create-request]
+verify_jwt = false
+[functions.respond-request]
+verify_jwt = false
+[functions.creator-action]
+verify_jwt = false
+[functions.push-device]
+verify_jwt = false
+[functions.push-dispatch]
+verify_jwt = false

@@ -1,0 +1,11 @@
+.workflow-request{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 0;border-bottom:1px solid var(--border,#444)}
+.workflow-request p{margin:.35rem 0;overflow-wrap:anywhere}.workflow-request small,.workflow-connection{color:var(--muted,#8996aa);font-size:.8rem}
+.workflow-request-actions,.workflow-share-options{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}.workflow-share-options{flex-direction:column;align-items:stretch}
+.workflow-notification{margin-block:1rem}.workflow-notification:not(.is-read){border-inline-start:3px solid var(--primary,#06f)}
+.workflow-status{padding:1rem;border:1px solid var(--border,#444);border-radius:12px;margin-block:1rem}
+.workflow-connection{min-height:1.5em;margin:0}.notification-count,[data-unread]:not(:empty){font-size:.7rem;background:var(--primary,#06f);color:white;border-radius:99px;min-width:1.2rem;padding:.1rem .3rem}
+[data-unified] h2{font-size:1.1rem;margin-block:1.4rem .8rem}[data-unified] .record-card p{overflow-wrap:anywhere}
+.full-card-number{font-size:1.5rem;text-align:center;font-variant-numeric:tabular-nums;user-select:all}
+[data-workflow-form] textarea{min-height:110px}[data-workflow-form] input,[data-workflow-form] select,[data-workflow-form] textarea{max-width:100%}
+button:disabled{cursor:wait;opacity:.65}.workflow-request-actions button{min-height:44px}
+@media(max-width:600px){.workflow-request{align-items:stretch;flex-direction:column}.workflow-request-actions{justify-content:flex-start}.workflow-request-actions button{flex:1}.workflow-request-actions .chip{flex-basis:100%;width:max-content}.setting-row:has([data-push-enable]){align-items:stretch;flex-direction:column}.setting-row:has([data-push-enable]) .actions{flex-wrap:wrap}}

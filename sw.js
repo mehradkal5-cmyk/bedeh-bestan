@@ -31,3 +31,25 @@ self.addEventListener('fetch', (event) => {
     return response;
   }));
 });
+
+self.addEventListener('push', (event) => {
+  let data;
+  try { data = event.data?.json(); } catch { return; }
+  if (!data?.notificationId) return;
+  event.waitUntil(self.registration.showNotification(data.title || 'بده‌بستان', {
+    body: data.body || '', icon: '/icon.svg', badge: '/icon.svg',
+    tag: data.notificationId, renotify: false,
+    data: { recordId: data.recordId, notificationId: data.notificationId },
+  }));
+});
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const recordId = event.notification.data?.recordId;
+  const valid = /^[0-9a-f-]{36}$/i.test(recordId || '');
+  const url = new URL(valid ? '/#record=' + recordId : '/', self.location.origin).href;
+  event.waitUntil(self.clients.matchAll({ type:'window',includeUncontrolled:true }).then(async (clients) => {
+    const client = clients.find((c) => new URL(c.url).origin === self.location.origin);
+    if (client) { await client.focus(); if(valid) client.postMessage({ type:'open-record',recordId }); }
+    else await self.clients.openWindow(url);
+  }));
+});

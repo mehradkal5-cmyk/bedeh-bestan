@@ -52,6 +52,7 @@
     sessionInFlight = null;
     sessionStorage.removeItem(authKey);
     sessionStorage.removeItem(refreshKey);
+    window.dispatchEvent(new Event('bedeh-signed-out'));
   };
 
   const tokenFromCallback = () => {
@@ -173,6 +174,15 @@
 
     async signOut() {
       const token = sessionStorage.getItem(authKey);
+      const deviceId = localStorage.getItem('bedeh-device-id');
+      if (configured && token && deviceId) {
+        try { await this.api('push-device', { action: 'disable', deviceId }); } catch { /* Local unsubscribe below also stops this browser's delivery. */ }
+      }
+      try {
+        const registration = await navigator.serviceWorker?.getRegistration();
+        const subscription = await registration?.pushManager?.getSubscription();
+        if (subscription) await subscription.unsubscribe();
+      } catch { /* Logout must still clear the authentication session offline. */ }
       clearSession();
       if (configured && token) await fetch(`${base}/auth/v1/logout`, { method: 'POST', headers: jsonHeaders(token) });
     },
@@ -208,6 +218,21 @@
       return result.data;
     },
 
+    async api(name, payload) {
+      const result = await invoke(name, payload || {}, true);
+      if (!result.ok) throw new Error(result.error || 'درخواست انجام نشد.');
+      return result.data;
+    },
+
+    realtimeClient() {
+      requireConfig();
+      if (!window.supabase) throw new Error('اتصال زنده بارگذاری نشد.');
+      return window.supabase.createClient(base, anon, {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+        accessToken: async () => (await this.session())?.access_token || null,
+      });
+    },
+
     async shared(token) {
       const result = await invoke('shared-record', { token });
       if (!result.ok) {
@@ -219,7 +244,7 @@
     },
 
     async recipient(token, action, payload) {
-      const result = await invoke('recipient-action', { token, action, payload: payload || {} });
+      const result = await invoke('recipient-action', { token, action, payload: payload || {} }, true);
       if (!result.ok) throw new Error(result.error || 'درخواست انجام نشد.');
       return result.data;
     },

@@ -1,5 +1,9 @@
 # Production deployment
 
+For the 2026-09-06 release, the user explicitly requested no automated or manual
+tests. Validation is limited to source syntax, Deno/SQL type checks, code review
+and the production build. See `RELEASE-2026-09-06.md` for untested flows and setup blockers.
+
 Requires Node.js 22.12+ and npm. The committed `package-lock.json` pins dependencies.
 
 ```sh
