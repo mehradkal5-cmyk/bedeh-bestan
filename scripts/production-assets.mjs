@@ -4,7 +4,7 @@ import vm from 'node:vm';
 
 // This is the entire publish boundary. Never glob the repository or use it as publicDir.
 export const runtimeFiles = Object.freeze([
-  'runtime-config.js', 'supabase-browser.js', 'unified-workflow.js', 'unified-workflow.css', 'product-core.js', 'backend-client.js', 'app.js',
+  'runtime-config.js', 'supabase-browser.js', 'friendly-controls.js', 'unified-workflow.js', 'unified-workflow.css', 'product-core.js', 'backend-client.js', 'app.js',
   'record-wizard-v2.js', 'workflow-client.js', 'shared-workflow.js',
   'creator-inbox.js', 'ui-cleanup.js', 'product-enhancements.js', 'pwa-boot.js',
   'styles.css', 'backend-gate.css', 'ui-cleanup.css', 'record-wizard-v2.css',

@@ -13,6 +13,7 @@
   let notificationsError = '', syncError = '', memberships = [], preferences = {}, invitation = null;
   let started = false, lastData = '', claimBusy = false;
   const tokens = new Map();
+  let seenNotifications = null;
   const getRecord = (id) => state.records.find((r) => r.id === id);
   const closed = (r) => ['completed','cancelled','returned','settled'].includes(r.status);
   const date = (value) => value ? new Intl.DateTimeFormat('fa-IR-u-ca-persian', { timeZone: 'Asia/Tehran', year:'numeric', month:'long', day:'numeric' }).format(new Date(value.length === 10 ? value + 'T12:00:00+03:30' : value)) : 'بدون موعد';
@@ -42,11 +43,11 @@
   function requestCard(q, r, canRespond = r?.permissions?.manage) {
     const person = r?.memberShares?.find((p) => p.id === q.participant_id)?.display_name;
     const details = q.kind === 'extension' ? date(q.payload?.dueAt) : q.kind === 'payment' ? money(q.payload?.amount, r) : '';
-    return `<article class="workflow-request" data-request-row="${q.id}"><div><strong>${escape(label[q.kind])}${r ? ` · ${escape(r.title)}` : ''}</strong><p>${escape(person || '')}${person && details ? ' · ' : ''}${details}</p><small>${date(q.created_at)}</small></div><div class="workflow-request-actions"><span class="chip ${q.status === 'approved' ? 'done' : q.status === 'rejected' ? 'late' : 'open'}">${statuses[q.status]}</span>${canRespond && q.status === 'pending' ? `<button class="primary-btn" data-decision="approved" data-request="${q.id}">${icon('check')} تأیید</button><button class="secondary-btn" data-decision="rejected" data-request="${q.id}">${icon('x')} رد</button>` : ''}</div></article>`;
+    return `<article class="workflow-request" data-request-row="${q.id}"><div><strong>${escape(label[q.kind])}${r ? ` · ${escape(r.title)}` : ''}</strong><p>${escape(person || '')}${person && details ? ' · ' : ''}${details}</p>${q.kind === 'membership' && canRespond ? `<p class="request-account">حساب درخواست‌کننده: <bdi>${escape(q.requester_email || q.requester_id)}</bdi></p><small>${q.membership_code_verified ? 'کد اختصاصی سهم وارد شده؛ حساب را با خود فرد تطبیق بده.' : 'درخواست قدیمی؛ فرد باید لینک را دوباره با کد اختصاصی باز کند.'}</small>` : ''}<small>${date(q.created_at)}</small></div><div class="workflow-request-actions"><span class="chip ${q.status === 'approved' ? 'done' : q.status === 'rejected' ? 'late' : 'open'}">${statuses[q.status]}</span>${canRespond && q.status === 'pending' ? `<button class="primary-btn" data-decision="approved" data-request="${q.id}">${icon('check')} تأیید</button><button class="secondary-btn" data-decision="rejected" data-request="${q.id}">${icon('x')} رد</button>` : ''}</div></article>`;
   }
 
   function recordCards(records) {
-    if (!records.length) return '<p class="empty">موردی در این بخش ندارید.</p>';
+    if (!records.length) return '<p class="empty">فعلاً اینجا چیزی نداریم.</p>';
     return `<div class="record-list">${records.map((r) => `<article class="record-card"><div class="record-card-top"><span class="type-label">${typeName(r.type)} · ${role(r)}</span><span class="chip ${closed(r) ? 'done' : 'open'}">${closed(r) ? 'بسته‌شده' : 'فعال'}</span></div><h3>${escape(r.title)}</h3><p>طرف مقابل: ${escape(r.person)}</p><p>${r.type === 'item' ? 'امانت' : `مانده${r.role === 'contributor' ? 'ٔ سهم شما' : ''}: ${money(balance(r), r)}`}</p><div class="record-card-foot"><span>${date(r.due)}</span><button class="text-btn" data-record="${r.id}">مشاهده ${icon('arrow-left')}</button></div></article>`).join('')}</div>`;
   }
 
@@ -68,7 +69,7 @@
       <div class="detail-grid"><section class="info-block"><h2>جزئیات</h2><div class="info-row"><span>طرف مقابل</span><b>${escape(r.person)}</b></div><div class="info-row"><span>موعد</span><b>${date(r.due)}</b></div>${r.type !== 'item' ? `<div class="info-row"><span>${r.role === 'contributor' ? 'سهم شما' : 'مبلغ اولیه'}</span><b>${money(r.amount,r)}</b></div><div class="info-row"><span>پرداخت تأییدشده</span><b>${money(r.amount-balance(r),r)}</b></div><div class="info-row"><span>مانده</span><b>${money(balance(r),r)}</b></div>` : ''}${r.note ? `<p>${escape(r.note)}</p>` : ''}
       <div class="actions">${manage && !closed(r) ? `<button class="primary-btn" data-invite="${r.id}">${icon('qr-code')} لینک و QR</button><button class="secondary-btn" data-owner-action="${r.type === 'item' ? 'mark-returned' : 'change-due-date'}" data-id="${r.id}">${r.type === 'item' ? 'ثبت بازگشت' : 'تغییر موعد'}</button>` : ''}${r.permissions?.request ? `<button class="secondary-btn" data-request-kind="extension" data-id="${r.id}">${icon('calendar-plus')} درخواست تمدید</button>${r.type === 'item' ? `<button class="secondary-btn" data-request-kind="return" data-id="${r.id}">اعلام بازگشت</button>` : ''}` : ''}${r.permissions?.pay && balance(r)>0 ? `<button class="secondary-btn" data-request-kind="payment" data-id="${r.id}">${icon('receipt')} ثبت پرداخت</button>` : ''}</div></section>
       ${r.cardSummary ? `<section class="info-block"><h2>کارت دریافت وجه</h2><p>${escape(r.cardSummary.bank_name || '')}</p><p dir="ltr">•••• ${escape(r.cardSummary.last4)}</p><button class="secondary-btn" data-card="${r.id}">نمایش شماره کامل</button></section>` : ''}
-      ${r.type === 'expense' ? `<section class="info-block"><h2>افراد و سهم‌ها</h2>${!r.sharesConfigured ? `<p>اطلاعات قدیمی حفظ شده است؛ پیش از دعوت، افراد و مبلغ سهم‌ها را مشخص کنید.</p>${manage ? `<button class="secondary-btn" data-configure-shares="${r.id}">تعیین سهم‌ها</button>` : ''}` : ''}${r.memberShares.map((p) => `<div class="info-row"><span>${escape(p.display_name)}</span><b>${p.share_amount ? money(p.share_amount,r) : 'تعیین‌نشده'} · ${p.membership_status === 'accepted' ? 'متصل' : 'دعوت‌نشده'}</b></div>`).join('')}</section>` : ''}
+      ${r.type === 'expense' ? `<section class="info-block"><h2>افراد و سهم‌ها</h2>${!r.sharesConfigured ? `<p>اطلاعات قدیمی حفظ شده است؛ پیش از دعوت، افراد و مبلغ سهم‌ها را مشخص کنید.</p>${manage ? `<button class="secondary-btn" data-configure-shares="${r.id}">تعیین سهم‌ها</button>` : ''}` : ''}${r.memberShares.map((p) => `<div class="info-row"><span>${escape(p.display_name)}</span><b>${p.share_amount ? money(p.share_amount,r) : 'تعیین‌نشده'} · ${p.membership_status === 'accepted' ? 'متصل' : 'در انتظار اتصال'}</b>${manage && p.membership_status !== 'accepted' && r.sharesConfigured && !closed(r) ? `<button class="secondary-btn" data-issue-share-code="${p.id}" data-id="${r.id}">کد دعوت</button>` : ''}</div>`).join('')}</section>` : ''}
       <section class="info-block span-2"><h2>درخواست‌ها</h2>${r.requests.length ? r.requests.map((q) => requestCard(q,r)).join('') : '<p>درخواستی ثبت نشده است.</p>'}</section>
       ${r.paymentEntries.length ? `<section class="info-block span-2"><h2>پرداخت‌ها و رسیدها</h2>${r.paymentEntries.map((p) => `<div class="workflow-request"><div><strong>${money(p.amount,r)}</strong><p>${escape(p.payerName)}</p></div><span>${p.status === 'confirmed' ? 'تأییدشده' : p.status === 'rejected' ? 'ردشده' : 'در انتظار'}</span>${p.receiptPath ? `<button class="text-btn" data-receipt-view="${p.id}">مشاهدهٔ رسید</button>` : ''}</div>`).join('')}</section>` : ''}
       <section class="info-block span-2"><h2>سابقهٔ مشترک</h2><ol class="timeline">${r.events.map((e) => `<li>${escape(e.text)}<time>${date(e.at)}</time></li>`).join('')}</ol></section></div>`;
@@ -82,11 +83,11 @@
   }
 
   function settings() {
-    return `<h1>تنظیمات</h1><section class="info-block"><div class="setting-row"><div><strong>${escape(user?.user_metadata?.display_name || user?.email || 'حساب کاربری')}</strong></div><button class="secondary-btn" data-account-action>مدیریت حساب</button></div><div class="setting-row"><label for="wf-reminders">یادآوری موعدها بر اساس ساعت تهران</label><input id="wf-reminders" class="toggle" type="checkbox" data-reminder-pref ${preferences.reminders_enabled ? 'checked' : ''}></div><div class="setting-row"><div><strong>اعلان این دستگاه</strong><p>با اجازهٔ شما؛ اعلان داخل برنامه همیشه باقی می‌ماند.</p></div><div class="actions"><button class="primary-btn" data-push-enable>فعال‌کردن اعلان</button><button class="secondary-btn" data-push-disable>غیرفعال‌کردن این دستگاه</button></div></div><p class="field-error" id="push-status" role="status"></p></section>`;
+    return `<h1>تنظیمات</h1><section class="info-block"><div class="setting-row"><div><strong>${escape(user?.user_metadata?.display_name || user?.email || 'حساب کاربری')}</strong></div><button class="secondary-btn" data-account-action>مدیریت حساب</button></div><div class="setting-row"><div><strong>حال‌وهوای برنامه</strong><p>روشن دوست داری یا تاریک؟</p></div><button class="secondary-btn" data-theme-setting aria-pressed="${document.documentElement.dataset.theme === 'dark'}">${document.documentElement.dataset.theme === 'dark' ? 'روشنش کن' : 'تاریکش کن'}</button></div><div class="setting-row"><label for="wf-sound">صدای اعلان‌های تازه</label><input id="wf-sound" class="toggle" type="checkbox" data-sound-setting ${window.BedehFriendly.soundEnabled() ? 'checked' : ''}></div><div class="setting-row"><label for="wf-reminders">یادآوری موعدها بر اساس ساعت تهران</label><input id="wf-reminders" class="toggle" type="checkbox" data-reminder-pref ${preferences.reminders_enabled ? 'checked' : ''}></div><div class="setting-row"><div><strong>اعلان این دستگاه</strong><p>با اجازهٔ شما؛ اعلان داخل برنامه همیشه باقی می‌ماند.</p></div><div class="actions"><button class="primary-btn" data-push-enable>فعال‌کردن اعلان</button><button class="secondary-btn" data-push-disable>غیرفعال‌کردن این دستگاه</button></div></div><p class="field-error" id="push-status" role="status"></p></section>`;
   }
 
   function content() {
-    if (!user) return '<section class="info-block"><h1>بده‌بستان</h1><p>برای دیدن بده‌بستان‌ها یا پذیرفتن دعوت وارد حساب شوید.</p><button class="primary-btn" data-login>ورود / ساخت حساب</button></section>';
+    if (!user) return '<section class="info-block"><h1>بده‌بستان</h1><p>حساب‌وکتاب رفاقت‌ها، همین‌جا. وارد شو تا بده‌بستان‌هایت را ببینی یا دعوتی را قبول کنی.</p><button class="primary-btn" data-login>ورود / ساخت حساب</button></section>';
     if (active === 'detail') { const r = getRecord(detailId); return r ? detailPage(r) : '<p>در حال دریافت بده‌بستان…</p>'; }
     if (active === 'notifications') return notificationsPage();
     if (active === 'settings') return settings();
@@ -97,11 +98,12 @@
   function renderSurface(refresh = false) {
     const x = scrollX, y = scrollY;
     const html = content();
-    if (refresh && document.querySelector('#main')?.closest('[data-unified]')) {
+    if (document.querySelector('#main')?.closest('[data-unified]')) {
       document.querySelector('#main').innerHTML = html;
     } else {
-      app.innerHTML = `<div class="app-shell" data-unified><header class="topbar"><div class="topbar-inner"><div class="brand-row"><div class="brand">بده‌بستان<span></span></div><div class="top-actions"><button class="icon-btn" data-action="toggle-dark" aria-label="تغییر تم">${icon('sun')}</button><button class="icon-btn" data-go="notifications" aria-label="اعلان‌ها">${icon('bell')}<span data-unread></span></button></div></div><p class="workflow-connection" role="status" data-connection></p></div></header><nav class="nav"><div class="nav-inner">${[['home','خانه','house'],['records','بده‌بستان‌ها','handshake'],['notifications','اعلان‌ها','bell'],['settings','تنظیمات','gear-six']].map(([key,title,i]) => `<button data-go="${key}" class="${active === key ? 'active' : ''}" ${active === key ? 'aria-current="page"' : ''}>${icon(i)} ${title}</button>`).join('')}</div></nav><main class="main" id="main">${html}</main></div>`;
+      app.innerHTML = `<div class="app-shell" data-unified><header class="topbar"><div class="topbar-inner"><div class="brand-row"><div class="brand">بده‌بستان<span></span></div><div class="top-actions"><button class="icon-btn" data-action="toggle-dark" aria-label="تغییر تم">${icon('sun')}</button><button class="icon-btn" data-go="notifications" aria-label="اعلان‌ها">${icon('bell')}<span data-unread></span></button></div></div><p class="workflow-connection" role="status" data-connection></p></div></header><nav class="nav"><div class="nav-inner">${[['home','خانه','house'],['records','بده‌بستان‌ها','handshake'],['notifications','اعلان‌ها','bell'],['settings','تنظیمات','gear-six']].map(([key,title,i]) => `<button data-go="${key}" class="${active === key ? 'active' : ''}" ${active === key ? 'aria-current="page"' : ''}>${icon(i)} ${title}</button>`).join('')}</div></nav><div class="workflow-stage"><div data-tip-slot></div><main class="main" id="main">${html}</main></div></div>`;
     }
+    document.querySelectorAll('[data-go]').forEach(b => { b.classList.toggle('active', b.dataset.go === active); if(b.dataset.go === active) b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current'); });
     updateConnection();
     if (refresh) { scrollTo(x,y); requestAnimationFrame(() => scrollTo(x,y)); }
   }
@@ -180,6 +182,8 @@
         }
         memberships = dashboard.value.membershipRequests || [];
         if (notes.status === 'fulfilled') {
+          if(seenNotifications && notes.value.notifications.some(n=>!n.read_at && !seenNotifications.has(n.id))) window.BedehFriendly.chime();
+          seenNotifications = new Set(notes.value.notifications.map(n=>n.id));
           state.notifications = notes.value.notifications.map((n) => ({ id:n.id,recordId:n.record_id,requestId:n.request_id,title:n.title,text:n.body,read:Boolean(n.read_at) }));
           state.unreadCount = notes.value.unreadCount;
           notificationsError = '';
@@ -215,12 +219,13 @@
     channel = null; realtime = null; tokens.clear(); lastData = '';
     state.records = []; state.notifications = []; state.unreadCount = 0; memberships = [];
     preferences = {}; detailId = ''; active = 'home';
+    seenNotifications = null;
     localStorage.removeItem(STORE);
     if (sheet.open) sheet.close();
     renderSurface();
   }
 
-  async function claim(token, participantId) {
+  async function claim(token, participantId, code) {
     if (claimBusy) return;
     claimBusy = true;
     try {
@@ -228,9 +233,9 @@
       invitation = token;
       user = await backend.session();
       if (!user) { renderSurface(); window.BedehEnhancements.showAccount('login','برای پذیرفتن دعوت وارد شوید یا حساب بسازید.'); return; }
-      const result = await backend.api('claim-share-link', { token, participantId: participantId || null });
+      const result = await backend.api('claim-share-link', { token, participantId: participantId || null, code });
       if (result.status === 'choose-share') {
-        showSheet('انتخاب سهم شما', `<p>نام خود را انتخاب کنید. اطلاعات خصوصی پس از تأیید سازنده نمایش داده می‌شود.</p><div class="workflow-share-options">${result.shares.map((s) => `<button class="secondary-btn" data-claim-share="${s.id}">${escape(s.name)}</button>`).join('') || '<p>سهم آزادی باقی نمانده است.</p>'}</div><p class="field-error" data-claim-error role="alert"></p>`);
+        showSheet('انتخاب سهم شما', `<p>اسمت را انتخاب کن و کدی را که سازنده خصوصی برایت فرستاده وارد کن. بعد از تأیید او، دنگ به خانه‌ات اضافه می‌شود.</p><label for="personal-share-code">کد اختصاصی سهم تو</label><input id="personal-share-code" dir="ltr" autocomplete="off" spellcheck="false" maxlength="40" placeholder="xxxx-xxxx-xxxx-xxxx-xxxx"><div class="workflow-share-options">${result.shares.map((s) => `<button class="secondary-btn" data-claim-share="${s.id}">${escape(s.name)}</button>`).join('') || '<p>سهم آزادی باقی نمانده است.</p>'}</div><p class="field-error" data-claim-error role="alert"></p>`);
         return;
       }
       invitation = null;
@@ -275,12 +280,12 @@
       await sync(); r = getRecord(r.id); r.shareToken = shared.token;
     }
     const url = `${location.origin}/#share=${r.shareToken}`;
-    showSheet('لینک و QR دعوت', `<div class="share-box"><p>این دعوت به حساب متصل می‌شود. لغو لینک فقط عضویت جدید را می‌بندد.</p><img class="qr" alt="QR دعوت" src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&format=svg&data=${encodeURIComponent(url)}"><label for="invitation-url">لینک دعوت</label><input id="invitation-url" readonly value="${escape(url)}"><div class="actions"><button class="primary-btn" data-copy-invite>کپی لینک</button><button class="secondary-btn" data-revoke-invite="${r.id}">لغو دعوت جدید</button></div><p class="field-error" data-invite-error role="alert"></p></div>`);
+    showSheet('لینک و QR دعوت', `<div class="share-box"><p>این دعوت به حساب متصل می‌شود. لغو لینک فقط عضویت جدید را می‌بندد.${r.type === 'expense' ? ' کد هر نفر را از بخش «افراد و سهم‌ها» بساز و خصوصی برای خودش بفرست.' : ''}</p><img class="qr" alt="QR دعوت" src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&format=svg&data=${encodeURIComponent(url)}"><label for="invitation-url">لینک دعوت</label><input id="invitation-url" readonly value="${escape(url)}"><div class="actions"><button class="primary-btn" data-copy-invite>کپی لینک</button><button class="secondary-btn" data-revoke-invite="${r.id}">لغو دعوت جدید</button></div><p class="field-error" data-invite-error role="alert"></p></div>`);
     sheet.querySelector('.qr').onerror = () => { sheet.querySelector('[data-invite-error]').textContent = 'QR دریافت نشد؛ می‌توانید لینک را کپی کنید.'; };
   }
 
   function configureShares(r) {
-    showSheet('تعیین سهم‌های دنگ', `<form class="account-form" data-workflow-form="shares" data-id="${r.id}"><p>مبلغ کل: ${money(r.totalAmount,r)}</p><p>نام‌های قبلی: ${escape(r.memberShares.map((p) => p.display_name).join('، '))}</p><label for="configure-shares">هر خط: نام و مبلغ سهم با دونقطه</label><textarea id="configure-shares" name="shares" required placeholder="علی: ۴۰۰۰۰۰"></textarea><p class="field-error" role="alert"></p><button type="submit" class="primary-btn">ذخیرهٔ سهم‌ها</button></form>`);
+    showSheet('تعیین سهم‌های دنگ', `<form class="account-form" data-workflow-form="shares" data-id="${r.id}" data-total="${r.totalAmount}"><p>مبلغ کل: ${money(r.totalAmount,r)}</p><p>نام‌های قبلی: ${escape(r.memberShares.map((p) => p.display_name).join('، '))}</p>${window.BedehFriendly.editor()}<p class="field-error" role="alert"></p><button type="submit" class="primary-btn">ذخیرهٔ سهم‌ها</button></form>`);
   }
 
   async function push(enable) {
@@ -305,13 +310,13 @@
     const button = event.target.closest('button');
     if (!button) return;
     const d = button.dataset;
-    const handled = ['go','record','decision','requestKind','card','invite','configureShares','read','readAll','sync','login','claimShare','retryInvite','dismissInvite','copyInvite','revokeInvite','ownerAction','pushEnable','pushDisable','workflowFilter'].some((key) => key in d);
+    const handled = ['go','record','decision','requestKind','card','invite','configureShares','read','readAll','sync','login','claimShare','retryInvite','dismissInvite','copyInvite','revokeInvite','ownerAction','pushEnable','pushDisable','workflowFilter','issueShareCode'].some((key) => key in d);
     if (!handled) return;
     event.preventDefault(); event.stopImmediatePropagation();
     if (button.disabled) return;
     button.disabled = true;
     try {
-      if ('go' in d) { active=d.go; detailId=''; renderSurface(); }
+      if ('go' in d) { active=d.go; detailId=''; renderSurface(); document.querySelector('#main').animate?.([{opacity:.65,transform:'translateY(6px)'},{opacity:1,transform:'none'}],{duration:matchMedia('(prefers-reduced-motion: reduce)').matches?0:220,easing:'ease-out'}); }
       if ('workflowFilter' in d) { window.filter=d.workflowFilter; renderSurface(); }
       if ('login' in d) window.BedehEnhancements.showAccount('login');
       if ('record' in d) openRecord(d.record);
@@ -324,8 +329,12 @@
       }
       if ('requestKind' in d) openRequest(getRecord(d.id),d.requestKind);
       if ('invite' in d) await invite(getRecord(d.invite));
+      if ('issueShareCode' in d) {
+        const result=await backend.command('issue-share-code',{recordId:d.id,participantId:d.issueShareCode});
+        showSheet('کد اختصاصی '+escape(result.name),`<p>این کد را همراه لینک مشترک، فقط برای ${escape(result.name)} بفرست. کد قبلی این سهم دیگر کار نمی‌کند.</p><label for="share-secret">کد دعوت</label><input id="share-secret" dir="ltr" readonly value="${escape(result.code)}"><button class="primary-btn" data-copy="${escape(result.code)}">کپی کد</button><p>کد فقط همین‌بار نمایش داده می‌شود؛ دریافت‌کننده هنوز به تأیید تو نیاز دارد.</p>`);
+      }
       if ('configureShares' in d) configureShares(getRecord(d.configureShares));
-      if ('claimShare' in d) await claim(invitation,d.claimShare);
+      if ('claimShare' in d) await claim(invitation,d.claimShare,document.querySelector('#personal-share-code')?.value);
       if ('retryInvite' in d) await claim(invitation);
       if ('dismissInvite' in d) { invitation=null; history.replaceState(null,'',location.pathname); sheet.close(); active='home'; await sync(); renderSurface(); connect(); }
       if ('copyInvite' in d) { await navigator.clipboard.writeText(document.querySelector('#invitation-url').value); notice('لینک کپی شد.'); }

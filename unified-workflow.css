@@ -6,6 +6,36 @@
 .workflow-connection{min-height:1.5em;margin:0}.notification-count,[data-unread]:not(:empty){font-size:.7rem;background:var(--primary,#06f);color:white;border-radius:99px;min-width:1.2rem;padding:.1rem .3rem}
 [data-unified] h2{font-size:1.1rem;margin-block:1.4rem .8rem}[data-unified] .record-card p{overflow-wrap:anywhere}
 .full-card-number{font-size:1.5rem;text-align:center;font-variant-numeric:tabular-nums;user-select:all}
+:root{--surface-elevated:var(--raised);--text-secondary:var(--muted);--link:#8bbaff}
+:root[data-theme="light"]{--link:#0756bd}
+.text-btn,.back{color:var(--link);min-height:44px}
+.chip.open{color:var(--link);background:var(--primary-soft)}
+.chip.done{color:var(--success);background:var(--success-soft)}
+.chip.due,.safety-note,.offline-bar{color:var(--warning);background:var(--warning-soft)}
+.chip.late,.chip.overdue,.warning{color:var(--danger);background:var(--danger-soft)}
+.field-error{color:var(--danger)}
+.settlement{color:var(--success);background:var(--success-soft)}
+.segmented label{background:var(--raised);color:var(--text)}
+.segmented input:checked+span{color:var(--link)}
+.sheet-body input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),.sheet-body select,.sheet-body textarea{width:100%;min-height:46px;padding:10px 12px;border:1px solid var(--border-strong);border-radius:8px;background:var(--raised);color:var(--text)}
+.sheet-body input::placeholder,.sheet-body textarea::placeholder{color:var(--muted);opacity:1}
+.sheet-body .password-control input:not([type="hidden"]){padding-inline-end:52px}
+.workflow-stage{min-width:0;width:100%;max-width:1040px;margin-inline:auto}
+[data-tip-slot]{padding:20px 16px 0}[data-tip-slot] .tip-ticker{margin:0}
+[data-unified] .nav-inner{grid-template-columns:repeat(4,minmax(0,1fr))}
+[data-unified] .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+.share-editor{display:grid;gap:12px}.share-editor-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px;gap:8px;align-items:end;margin-bottom:12px}
+.share-editor-row>div{min-width:0}.share-editor-row label{display:block;font-size:.8rem;margin-bottom:4px}
+.share-editor [data-share-total]{margin:0;color:var(--muted);font-variant-numeric:tabular-nums}
+[data-share-amount],input[name="amount"]{font-variant-numeric:tabular-nums}
+.request-account{font-size:.82rem;overflow-wrap:anywhere}.info-row:has([data-issue-share-code]){flex-wrap:wrap}.info-row:has([data-issue-share-code]) b{white-space:normal}
+.toggle{flex-shrink:0}.setting-row strong{display:block}
+@media(min-width:768px){.workflow-stage{grid-column:2;grid-row:1/3}[data-tip-slot]{padding:32px 32px 0}[data-unified] .nav-inner{grid-template-columns:1fr}}
+@media(max-width:450px){[data-unified] .stats{grid-template-columns:repeat(2,minmax(0,1fr))}[data-unified] .stat:last-child{grid-column:1/-1}.share-editor .actions{align-items:stretch;flex-direction:column}}
+@keyframes sheet-arrive{from{opacity:0;transform:translateY(12px) scale(.99)}to{opacity:1;transform:none}}
+@keyframes theme-arrive{from{opacity:0;clip-path:circle(0% at 90% 10%)}to{opacity:1;clip-path:circle(150% at 90% 10%)}}
+@media(prefers-reduced-motion:no-preference){dialog[open]{animation:sheet-arrive .22s ease-out}button:active:not(:disabled):not(.password-control__toggle){transform:translateY(1px)}::view-transition-old(root){animation:none}::view-transition-new(root){animation:theme-arrive .42s ease-out}}
+@media(prefers-reduced-motion:reduce){.tip-ticker__track{animation:none!important}.tip-ticker__viewport{overflow-x:auto}::view-transition-group(*){animation-duration:0s!important}}
 [data-workflow-form] textarea{min-height:110px}[data-workflow-form] input,[data-workflow-form] select,[data-workflow-form] textarea{max-width:100%}
 button:disabled{cursor:wait;opacity:.65}.workflow-request-actions button{min-height:44px}
 @media(max-width:600px){.workflow-request{align-items:stretch;flex-direction:column}.workflow-request-actions{justify-content:flex-start}.workflow-request-actions button{flex:1}.workflow-request-actions .chip{flex-basis:100%;width:max-content}.setting-row:has([data-push-enable]){align-items:stretch;flex-direction:column}.setting-row:has([data-push-enable]) .actions{flex-wrap:wrap}}

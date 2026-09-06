@@ -5,6 +5,12 @@ authenticated(async (user, body) => {
   const action = body.action;
   const payload = assertObject(body.payload || {});
   const client = admin();
+  if (action === 'issue-share-code') {
+    if (!validId(payload.recordId) || !validId(payload.participantId)) throw new Error('شناسهٔ سهم معتبر نیست.');
+    const code = Array.from(crypto.getRandomValues(new Uint8Array(10)), b => b.toString(16).padStart(2, '0')).join('');
+    const result = await rpc('issue_share_code', { p_actor: user.id, p_record: payload.recordId, p_participant: payload.participantId, p_hash: await sha256(code) });
+    return { ...result, code: code.match(/.{4}/g)!.join('-') };
+  }
   if (action === 'dashboard') return rpc('workflow_dashboard', { p_actor: user.id });
   if (action === 'notifications') {
     const { data, error } = await client.from('notifications').select('id,record_id,request_id,kind,title,body,delivery,read_at,created_at,record_requests(id,kind,status,record_id)').eq('user_id', user.id).order('created_at', { ascending: false }).limit(100);

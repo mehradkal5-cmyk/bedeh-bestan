@@ -7,6 +7,13 @@
   const anon = String(config.supabaseAnonKey || '');
   const authKey = 'bedeh-bestan.auth.access-token';
   const refreshKey = 'bedeh-bestan.auth.refresh-token';
+  // Adopt an existing tab session once, then keep login across browser restarts.
+  if (!localStorage.getItem(refreshKey) && sessionStorage.getItem(refreshKey)) {
+    localStorage.setItem(refreshKey, sessionStorage.getItem(refreshKey));
+    if (sessionStorage.getItem(authKey)) localStorage.setItem(authKey, sessionStorage.getItem(authKey));
+  }
+  sessionStorage.removeItem(authKey);
+  sessionStorage.removeItem(refreshKey);
   let sessionInFlight = null;
   let sessionRevision = 0;
   const configured = Boolean(base && anon && !base.includes('your-project'));
@@ -40,9 +47,9 @@
     if (payload?.access_token) {
       sessionRevision += 1;
       sessionInFlight = null;
-      sessionStorage.setItem(authKey, payload.access_token);
-      if (payload.refresh_token) sessionStorage.setItem(refreshKey, payload.refresh_token);
-      else sessionStorage.removeItem(refreshKey);
+      localStorage.setItem(authKey, payload.access_token);
+      if (payload.refresh_token) localStorage.setItem(refreshKey, payload.refresh_token);
+      else localStorage.removeItem(refreshKey);
     }
     return payload;
   };
@@ -50,10 +57,13 @@
   const clearSession = () => {
     sessionRevision += 1;
     sessionInFlight = null;
-    sessionStorage.removeItem(authKey);
-    sessionStorage.removeItem(refreshKey);
+    localStorage.removeItem(authKey);
+    localStorage.removeItem(refreshKey);
     window.dispatchEvent(new Event('bedeh-signed-out'));
   };
+  window.addEventListener('storage', (event) => {
+    if (event.key === authKey && event.newValue === null) clearSession();
+  });
 
   const tokenFromCallback = () => {
     const params = new URLSearchParams(location.hash.replace(/^#/, ''));
@@ -69,7 +79,7 @@
       history.replaceState(null, '', `${location.pathname}${location.search}`);
       return token;
     }
-    return sessionStorage.getItem(authKey);
+    return localStorage.getItem(authKey);
   };
 
   const requireConfig = () => {
@@ -94,7 +104,7 @@
 
   async function readSession() {
     const token = tokenFromCallback();
-    const refreshToken = sessionStorage.getItem(refreshKey);
+    const refreshToken = localStorage.getItem(refreshKey);
     const revision = sessionRevision;
     if (!configured || (!token && !refreshToken)) return null;
     if (token) {
@@ -138,7 +148,8 @@
     session() {
       if (!sessionInFlight) {
         // Share a single refresh: refresh tokens rotate and must not race.
-        const operation = readSession().finally(() => {
+        const read = () => readSession();
+        const operation = (navigator.locks ? navigator.locks.request('bedeh-auth-refresh', read) : read()).finally(() => {
           if (sessionInFlight === operation) sessionInFlight = null;
         });
         sessionInFlight = operation;
@@ -173,7 +184,7 @@
     },
 
     async signOut() {
-      const token = sessionStorage.getItem(authKey);
+      const token = localStorage.getItem(authKey);
       const deviceId = localStorage.getItem('bedeh-device-id');
       if (configured && token && deviceId) {
         try { await this.api('push-device', { action: 'disable', deviceId }); } catch { /* Local unsubscribe below also stops this browser's delivery. */ }

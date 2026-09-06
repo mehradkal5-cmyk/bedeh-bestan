@@ -22,6 +22,7 @@
     request_approved: 'درخواست تأیید شد.',
     request_rejected: 'درخواست رد شد.',
     shares_configured: 'افراد و سهم‌های دنگ مشخص شدند.',
+    share_code_issued: 'کد اختصاصی دعوت یک سهم ساخته شد.',
   };
   let currentUser = null;
   let activeReceiptRecordId = '';
@@ -44,8 +45,10 @@
     return matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
   }
 
+  let themeTransition = null;
   function setTheme(theme, persist = true) {
     const next = theme === 'light' ? 'light' : 'dark';
+    const change = () => {
     document.documentElement.dataset.theme = next;
     document.body.dataset.theme = next;
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', next === 'light' ? '#F4F6F8' : '#1E1E1E');
@@ -55,6 +58,15 @@
       if (typeof save === 'function') save();
     }
     decorateTopbar();
+    document.querySelector('[data-theme-setting]')?.setAttribute('aria-pressed', String(next === 'dark'));
+    const themeLabel = document.querySelector('[data-theme-setting]');
+    if (themeLabel) themeLabel.textContent = next === 'dark' ? 'روشنش کن' : 'تاریکش کن';
+    };
+    if (persist && document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      themeTransition?.skipTransition();
+      themeTransition = document.startViewTransition(change);
+      themeTransition.finished.catch(() => {});
+    } else change();
   }
 
   function decorateTopbar() {
@@ -106,15 +118,17 @@
   }
 
   function addTicker() {
+    if (window.BedehUnified && !document.querySelector('[data-tip-slot]')) return;
     const main = document.querySelector('main#main');
-    if (!main || main.querySelector('.tip-ticker')) return;
+    if (!main || document.querySelector('.tip-ticker')) return;
     const ticker = document.createElement('aside');
     ticker.className = 'tip-ticker';
     ticker.dataset.paused = String(tickerPaused);
     ticker.setAttribute('aria-label', 'نکته‌های بده‌بستان');
     const group = `<div class="tip-ticker__group">${core.tips.map((tip) => `<span class="tip-ticker__item">${htmlEscape(tip)}</span>`).join('')}</div>`;
     ticker.innerHTML = `<span class="tip-ticker__label">${icon('sparkle')} نکته</span><div class="tip-ticker__viewport"><div class="tip-ticker__track" aria-hidden="true">${group}${group}</div><span class="sr-only">${htmlEscape(core.tips.join(' '))}</span></div><button type="button" class="icon-btn tip-ticker__toggle" data-ticker-toggle aria-label="${tickerPaused ? 'پخش نکته‌ها' : 'توقف نکته‌ها'}" aria-pressed="${tickerPaused}">${icon(tickerPaused ? 'play' : 'pause')}</button>`;
-    main.prepend(ticker);
+    const slot = document.querySelector('[data-tip-slot]');
+    if (slot) slot.append(ticker); else main.prepend(ticker);
   }
 
   function addCompletedTab() {

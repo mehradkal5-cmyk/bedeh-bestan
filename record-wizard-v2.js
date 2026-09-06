@@ -28,7 +28,7 @@
     return base.concat([
       field('عنوان هزینه', 'title', input('title', 'مثلاً اتاق فرار', true)),
       field('مبلغ کل', 'amount', `<div class="record-step__split">${input('amount', '۱۲۰۰۰۰۰', true, 'inputmode="numeric"')}<label class="sr-only" for="${controlId('currency')}">واحد پول</label><select id="${controlId('currency')}" name="currency"><option>تومان</option><option>ریال</option></select></div>`),
-      field('افراد و مبلغ سهم', 'shares', '<textarea id="wizard-shares" name="shares" required placeholder="علی: ۴۰۰۰۰۰&#10;سارا: ۸۰۰۰۰۰" aria-describedby="shares-help"></textarea><small id="shares-help">هر نفر در یک خط: نام و مبلغ سهم. جمع سهم‌ها باید برابر مبلغ کل و با همان واحد پول باشد. شما پرداخت‌کنندهٔ اولیه هستید.</small>'),
+      group('کی‌ها شریک این دنگن؟', window.BedehFriendly.editor()),
       field('تاریخ سررسید', 'due', input('due', '', true, `type="date" min="${today}"`)), cardStep(), optionalStep(),
     ]);
   };
@@ -51,7 +51,7 @@
       const invalid = [...all[index].querySelectorAll('input,select,textarea')].find((control) => !control.checkValidity());
       if (!invalid) { error.textContent = ''; return true; }
       invalid.setAttribute('aria-invalid', 'true');
-      error.textContent = 'این فیلد را کامل کنید.';
+      error.textContent = invalid.validity.customError ? invalid.validationMessage : 'این فیلد را کامل کن.';
       invalid.focus({ preventScroll: true });
       return false;
     };
