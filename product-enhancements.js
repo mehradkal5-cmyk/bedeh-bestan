@@ -64,8 +64,15 @@
     };
     if (persist && document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
       themeTransition?.skipTransition();
-      themeTransition = document.startViewTransition(change);
-      themeTransition.finished.catch(() => {});
+      document.documentElement.dataset.themeChanging = 'true';
+      const transition = document.startViewTransition(change);
+      themeTransition = transition;
+      transition.finished.catch(() => {}).finally(() => {
+        if (themeTransition === transition) {
+          delete document.documentElement.dataset.themeChanging;
+          themeTransition = null;
+        }
+      });
     } else change();
   }
 

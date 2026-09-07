@@ -64,11 +64,12 @@ test('authenticated signup loads data immediately without a confirmation screen'
   assert.equal(harness.calls.includes('dashboard'), true);
 });
 
-test('recipient share access never forces signup', async () => {
+test('recipient share access checks the persistent session before account entry', async () => {
   const harness = accountHarness({ hash: '#share=test-token' });
   await harness.run();
-  assert.deepEqual(harness.calls, []);
-  assert.deepEqual(harness.sheets, []);
+  assert.deepEqual(harness.calls, ['session']);
+  assert.equal(harness.sheets.length, 1);
+  assert.match(harness.sheets[0].html, /data-mode="register"/);
 });
 
 test('old invalid confirmation links fall back to password login without resend controls', async () => {

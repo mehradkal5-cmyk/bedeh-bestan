@@ -7,5 +7,6 @@ export default defineConfig(({ mode }) => {
     base: '/',
     publicDir: false,
     plugins: [classicAssetsPlugin(env)],
+    build: { rollupOptions: { output: { entryFileNames: (chunk) => chunk.name === 'index' ? 'qr-code.js' : '[name].js', chunkFileNames: '[name].js', assetFileNames: '[name][extname]' } } },
   };
 });

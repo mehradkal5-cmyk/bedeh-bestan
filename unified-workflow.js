@@ -8,7 +8,7 @@
   const icon = (name) => `<i class="ph ph-${name}" aria-hidden="true"></i>`;
   const label = { membership: 'عضویت در دنگ', extension: 'تمدید موعد', return: 'بازگشت امانت', payment: 'پرداخت' };
   const statuses = { pending: 'در انتظار', approved: 'تأییدشده', rejected: 'ردشده' };
-  let user = null, inFlight = null, queued = false, revision = 0, detailId = '';
+  let user = backend.cachedSession?.() || null, authReady = Boolean(user), inFlight = null, queued = false, revision = 0, detailId = '';
   let realtime = null, channel = null, connected = false, timer = null, debounce = null, backoff = 5000;
   let notificationsError = '', syncError = '', memberships = [], preferences = {}, invitation = null;
   let started = false, lastData = '', claimBusy = false;
@@ -87,6 +87,7 @@
   }
 
   function content() {
+    if (!authReady) return `<section class="info-block workflow-auth-loading" aria-busy="true"><h1>حسابت سر جاشه</h1><p>${syncError ? escape(syncError) : 'در حال بازیابی حساب…'}</p>${syncError ? '<button class="secondary-btn" data-sync>تلاش دوباره</button>' : ''}</section>`;
     if (!user) return '<section class="info-block"><h1>بده‌بستان</h1><p>حساب‌وکتاب رفاقت‌ها، همین‌جا. وارد شو تا بده‌بستان‌هایت را ببینی یا دعوتی را قبول کنی.</p><button class="primary-btn" data-login>ورود / ساخت حساب</button></section>';
     if (active === 'detail') { const r = getRecord(detailId); return r ? detailPage(r) : '<p>در حال دریافت بده‌بستان…</p>'; }
     if (active === 'notifications') return notificationsPage();
@@ -164,13 +165,14 @@
       try {
         const session = await backend.session();
         if (currentRevision !== revision) return false;
-        if (!session) { clearAccount(); return false; }
-        if (user && user.id !== session.id) { clearAccount(); return false; }
+        if (!session) { authReady = true; clearAccount(); return false; }
+        if (user && user.id !== session.id) { authReady = true; clearAccount(); return false; }
         if (!user) {
           try { for (const [id, shared] of JSON.parse(sessionStorage.getItem('bedeh-invites-' + session.id) || '[]')) tokens.set(id,shared); } catch { /* Ignore invalid local invitation cache. */ }
         }
-        user = session;
+        user = session; authReady = true;
         window.BedehEnhancements.setCurrentUser(session);
+        if (!lastData) renderSurface();
         const [dashboard, notes, prefs] = await Promise.allSettled([backend.command('dashboard'), backend.command('notifications'), backend.command('preferences')]);
         if (currentRevision !== revision) return false;
         if (dashboard.status === 'rejected') throw dashboard.reason;
@@ -198,6 +200,7 @@
       } catch (error) {
         syncError = error.message || 'همگام‌سازی انجام نشد؛ دوباره تلاش می‌کنیم.';
         backoff = Math.min(backoff * 2, 120000);
+        if (!user) renderSurface();
         updateConnection();
         return false;
       } finally { schedule(); }
@@ -212,7 +215,7 @@
 
   function clearAccount() {
     if (user) sessionStorage.removeItem('bedeh-invites-' + user.id);
-    revision += 1; user = null; queued = false; connected = false;
+    revision += 1; user = null; authReady = true; queued = false; connected = false;
     window.BedehEnhancements.setCurrentUser(null);
     clearTimeout(timer); clearTimeout(debounce);
     if (realtime) realtime.removeAllChannels();
@@ -231,7 +234,7 @@
     try {
       if (!/^[A-Za-z0-9_-]{43}$/.test(token || '')) throw new Error('لینک دعوت معتبر نیست.');
       invitation = token;
-      user = await backend.session();
+      user = await backend.session(); authReady = true;
       if (!user) { renderSurface(); window.BedehEnhancements.showAccount('login','برای پذیرفتن دعوت وارد شوید یا حساب بسازید.'); return; }
       const result = await backend.api('claim-share-link', { token, participantId: participantId || null, code });
       if (result.status === 'choose-share') {
@@ -280,12 +283,13 @@
       await sync(); r = getRecord(r.id); r.shareToken = shared.token;
     }
     const url = `${location.origin}/#share=${r.shareToken}`;
-    showSheet('لینک و QR دعوت', `<div class="share-box"><p>این دعوت به حساب متصل می‌شود. لغو لینک فقط عضویت جدید را می‌بندد.${r.type === 'expense' ? ' کد هر نفر را از بخش «افراد و سهم‌ها» بساز و خصوصی برای خودش بفرست.' : ''}</p><img class="qr" alt="QR دعوت" src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&format=svg&data=${encodeURIComponent(url)}"><label for="invitation-url">لینک دعوت</label><input id="invitation-url" readonly value="${escape(url)}"><div class="actions"><button class="primary-btn" data-copy-invite>کپی لینک</button><button class="secondary-btn" data-revoke-invite="${r.id}">لغو دعوت جدید</button></div><p class="field-error" data-invite-error role="alert"></p></div>`);
-    sheet.querySelector('.qr').onerror = () => { sheet.querySelector('[data-invite-error]').textContent = 'QR دریافت نشد؛ می‌توانید لینک را کپی کنید.'; };
+    const qr = window.BedehQr?.dataUrl(url);
+    showSheet('لینک و QR دعوت', `<div class="share-box"><p>این دعوت به حساب متصل می‌شود. لغو لینک فقط عضویت جدید را می‌بندد.${r.type === 'expense' ? ' کد هر نفر را از بخش «افراد و سهم‌ها» بساز و خصوصی برای خودش بفرست.' : ''}</p>${qr ? `<img class="qr" alt="QR دعوت" src="${qr}">` : ''}<label for="invitation-url">لینک دعوت</label><input id="invitation-url" readonly value="${escape(url)}"><div class="actions"><button class="primary-btn" data-copy-invite>کپی لینک</button><button class="secondary-btn" data-revoke-invite="${r.id}">لغو دعوت جدید</button></div><p class="field-error" data-invite-error role="alert">${qr ? '' : 'QR آماده نشد؛ می‌توانید لینک را کپی کنید.'}</p></div>`);
   }
 
   function configureShares(r) {
-    showSheet('تعیین سهم‌های دنگ', `<form class="account-form" data-workflow-form="shares" data-id="${r.id}" data-total="${r.totalAmount}"><p>مبلغ کل: ${money(r.totalAmount,r)}</p><p>نام‌های قبلی: ${escape(r.memberShares.map((p) => p.display_name).join('، '))}</p>${window.BedehFriendly.editor()}<p class="field-error" role="alert"></p><button type="submit" class="primary-btn">ذخیرهٔ سهم‌ها</button></form>`);
+    const shares = r.memberShares.map((p) => ({ name:p.display_name, amount:p.share_amount }));
+    showSheet('تعیین سهم‌های دنگ', `<form class="account-form" data-workflow-form="shares" data-id="${r.id}" data-total="${r.totalAmount}"><p>مبلغ کل: ${money(r.totalAmount,r)}</p>${window.BedehFriendly.editor(shares)}<p class="field-error" role="alert"></p><button type="submit" class="primary-btn">ذخیرهٔ سهم‌ها</button></form>`);
   }
 
   async function push(enable) {
@@ -331,7 +335,7 @@
       if ('invite' in d) await invite(getRecord(d.invite));
       if ('issueShareCode' in d) {
         const result=await backend.command('issue-share-code',{recordId:d.id,participantId:d.issueShareCode});
-        showSheet('کد اختصاصی '+escape(result.name),`<p>این کد را همراه لینک مشترک، فقط برای ${escape(result.name)} بفرست. کد قبلی این سهم دیگر کار نمی‌کند.</p><label for="share-secret">کد دعوت</label><input id="share-secret" dir="ltr" readonly value="${escape(result.code)}"><button class="primary-btn" data-copy="${escape(result.code)}">کپی کد</button><p>کد فقط همین‌بار نمایش داده می‌شود؛ دریافت‌کننده هنوز به تأیید تو نیاز دارد.</p>`);
+        showSheet('کد اختصاصی '+escape(result.name),`<p>این کد را همراه لینک مشترک، فقط برای ${escape(result.name)} بفرست. کد قبلی این سهم دیگر کار نمی‌کند.</p><label for="share-secret">کد دعوت</label><input id="share-secret" dir="ltr" readonly value="${escape(result.code)}"><button class="primary-btn" data-copy="${escape(result.code)}">کپی کد</button><p>کد تا ۲۴ ساعت معتبر است و با اولین درخواست مصرف می‌شود؛ اتصال نهایی هنوز به تأیید حساب کاربری توسط تو نیاز دارد.</p>`);
       }
       if ('configureShares' in d) configureShares(getRecord(d.configureShares));
       if ('claimShare' in d) await claim(invitation,d.claimShare,document.querySelector('#personal-share-code')?.value);

@@ -1,7 +1,8 @@
-const CACHE = 'bedeh-bestan-v28';
-const ASSETS = ['./', './index.html', './styles.css', './backend-gate.css', './ui-cleanup.css', './record-wizard-v2.css', './layout-stability.css', './product-enhancements.css', './app.js', './product-core.js', './record-wizard-v2.js', './backend-client.js', './workflow-client.js', './shared-workflow.js', './creator-inbox.js', './ui-cleanup.js', './product-enhancements.js', './pwa-boot.js', './manifest.webmanifest', './icon.svg', './offline.html'];
+const CACHE = 'bedeh-bestan-v30';
+const ASSETS = ['./', './index.html', './styles.css', './backend-gate.css', './ui-cleanup.css', './record-wizard-v2.css', './layout-stability.css', './product-enhancements.css', './unified-workflow.css', './app.js', './supabase-browser.js', './product-core.js', './record-wizard-v2.js', './backend-client.js', './friendly-controls.js', './workflow-client.js', './shared-workflow.js', './creator-inbox.js', './ui-cleanup.js', './product-enhancements.js', './unified-workflow.js', './qr-code.js', './pwa-boot.js', './manifest.webmanifest', './icon.svg', './offline.html'];
 
-self.addEventListener('install', (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS.map((url) => new Request(url, { cache: 'reload' })))).then(() => self.skipWaiting())));
+const precacheRequest = (url) => new Request(url, { cache: 'reload', headers: /\.css(?:\?|$)/.test(url) ? { Accept: 'text/css' } : undefined });
+self.addEventListener('install', (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS.map(precacheRequest))).then(() => self.skipWaiting())));
 self.addEventListener('activate', (event) => event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key.startsWith('bedeh-bestan-') && key !== CACHE).map((key) => caches.delete(key)))).then(() => self.clients.claim())));
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;

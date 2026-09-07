@@ -6,10 +6,18 @@ const vm = require('node:vm');
 function clientWithResponse(payload, status = 200) {
   const calls = [];
   const stored = new Map();
+  const tabStored = new Map();
+  const storage = (values) => ({
+    setItem: (key, value) => values.set(key, value),
+    getItem: (key) => values.get(key) ?? null,
+    removeItem: (key) => values.delete(key),
+  });
   const context = {
-    window: { BEDEH_BESTAN_CONFIG: { supabaseUrl: 'https://project.test', supabaseAnonKey: 'public-test-key' }, dispatchEvent() {} },
+    window: { BEDEH_BESTAN_CONFIG: { supabaseUrl: 'https://project.test', supabaseAnonKey: 'public-test-key' }, dispatchEvent() {}, addEventListener() {} },
     location: { origin: 'http://127.0.0.1:4173', pathname: '/', search: '', hash: '' },
-    sessionStorage: { setItem: (key, value) => stored.set(key, value), getItem: (key) => stored.get(key), removeItem: (key) => stored.delete(key) },
+    localStorage: storage(stored),
+    sessionStorage: storage(tabStored),
+    navigator: {},
     fetch: async (url, options) => {
       calls.push({ url, ...options });
       return { ok: status < 400, status, json: async () => payload };
@@ -56,6 +64,7 @@ test('preserves the exact server status and code for an unconfirmed account', as
 
 const accessKey = 'bedeh-bestan.auth.access-token';
 const refreshKey = 'bedeh-bestan.auth.refresh-token';
+const userKey = 'bedeh-bestan.auth.user';
 const reply = (status, body) => ({ ok: status < 400, status, json: async () => body });
 
 test('temporary network failure preserves the session for retry', async () => {
@@ -63,7 +72,7 @@ test('temporary network failure preserves the session for retry', async () => {
   stored.set(accessKey, 'existing-access');
   stored.set(refreshKey, 'existing-refresh');
   context.fetch = async () => { throw new TypeError('Failed to fetch'); };
-  await assert.rejects(client.session(), /Failed to fetch/);
+  await assert.rejects(client.session(), /ارتباط با سرور برقرار نشد/);
   assert.equal(stored.get(accessKey), 'existing-access');
   assert.equal(stored.get(refreshKey), 'existing-refresh');
 });
@@ -92,6 +101,17 @@ test('server failure during refresh preserves tokens instead of signing out', as
   stored.set(refreshKey, 'valid-refresh');
   context.fetch = async (url) => url.includes('/auth/v1/user') ? reply(403, { msg: 'expired' }) : reply(503, { msg: 'temporary outage' });
   await assert.rejects(client.session(), /temporary outage/);
+  assert.equal(stored.get(refreshKey), 'valid-refresh');
+});
+
+test('rate limiting during refresh preserves the durable account instead of forcing login', async () => {
+  const { client, context, stored } = clientWithResponse({});
+  stored.set(accessKey, 'expired-access');
+  stored.set(refreshKey, 'valid-refresh');
+  stored.set(userKey, JSON.stringify({ id: 'user-id', email: 'person@example.test' }));
+  context.fetch = async (url) => url.includes('/auth/v1/user') ? reply(401, { msg: 'expired' }) : reply(400, { error_code: 'over_request_rate_limit', msg: 'rate limit exceeded' });
+  await assert.rejects(client.session(), /rate limit exceeded/);
+  assert.equal(client.cachedSession().id, 'user-id');
   assert.equal(stored.get(refreshKey), 'valid-refresh');
 });
 

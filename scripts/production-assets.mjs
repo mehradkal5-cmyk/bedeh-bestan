@@ -11,7 +11,8 @@ export const runtimeFiles = Object.freeze([
   'layout-stability.css', 'product-enhancements.css', 'manifest.webmanifest',
   'icon.svg', 'offline.html', 'sw.js',
 ]);
-export const outputFiles = Object.freeze(['index.html', ...runtimeFiles, '_headers']);
+export const bundledFiles = Object.freeze(['qr-code.js']);
+export const outputFiles = Object.freeze(['index.html', ...runtimeFiles, ...bundledFiles, '_headers']);
 
 export function localPath(reference, from = 'index.html') {
   if (/^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(reference)) return null;
@@ -30,7 +31,7 @@ export function assertPublicSource(source, file) {
 }
 
 export async function readPublicFile(root, file) {
-  if (!runtimeFiles.includes(file) && file !== 'index.html') throw new Error(`Asset is not allowlisted: ${file}`);
+  if (!runtimeFiles.includes(file) && !bundledFiles.includes(file) && file !== 'index.html') throw new Error(`Asset is not allowlisted: ${file}`);
   const resolvedRoot = await fs.realpath(root);
   const resolvedFile = await fs.realpath(path.join(root, file));
   const relative = path.relative(resolvedRoot, resolvedFile);

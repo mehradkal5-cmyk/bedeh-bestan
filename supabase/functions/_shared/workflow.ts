@@ -23,7 +23,7 @@ export function authenticated(handler: (user: { id: string }, body: Record<strin
 
 export async function accessible(recordId: string, userId: string) {
   const client = admin();
-  const { data: record, error } = await client.from('records').select('id,creator_id').eq('id', recordId).maybeSingle();
+  const { data: record, error } = await client.from('records').select('id,creator_id,kind').eq('id', recordId).maybeSingle();
   if (error) throw error;
   if (!record) throw new Error('بده‌بستان پیدا نشد.');
   if (record.creator_id === userId) return record;

@@ -34,6 +34,7 @@
 @media(max-width:450px){[data-unified] .stats{grid-template-columns:repeat(2,minmax(0,1fr))}[data-unified] .stat:last-child{grid-column:1/-1}.share-editor .actions{align-items:stretch;flex-direction:column}}
 @keyframes sheet-arrive{from{opacity:0;transform:translateY(12px) scale(.99)}to{opacity:1;transform:none}}
 @keyframes theme-arrive{from{opacity:0;clip-path:circle(0% at 90% 10%)}to{opacity:1;clip-path:circle(150% at 90% 10%)}}
+html[data-theme-changing] *,html[data-theme-changing] *::before,html[data-theme-changing] *::after{transition:none!important}
 @media(prefers-reduced-motion:no-preference){dialog[open]{animation:sheet-arrive .22s ease-out}button:active:not(:disabled):not(.password-control__toggle){transform:translateY(1px)}::view-transition-old(root){animation:none}::view-transition-new(root){animation:theme-arrive .42s ease-out}}
 @media(prefers-reduced-motion:reduce){.tip-ticker__track{animation:none!important}.tip-ticker__viewport{overflow-x:auto}::view-transition-group(*){animation-duration:0s!important}}
 [data-workflow-form] textarea{min-height:110px}[data-workflow-form] input,[data-workflow-form] select,[data-workflow-form] textarea{max-width:100%}

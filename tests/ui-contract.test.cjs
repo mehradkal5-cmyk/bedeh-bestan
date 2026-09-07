@@ -59,7 +59,7 @@ test('account creation is direct and has no email-confirmation recovery copy', (
 
 test('keeps enhancement assets available offline with a new cache version', () => {
   const sw = read('sw.js');
-  assert.match(sw, /bedeh-bestan-v28/);
+  assert.match(sw, /bedeh-bestan-v30/);
   assert.match(sw, /product-core\.js/);
   assert.match(sw, /product-enhancements\.js/);
   assert.match(sw, /product-enhancements\.css/);

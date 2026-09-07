@@ -43,11 +43,15 @@ authenticated(async (user, body) => {
   }
   if (action === 'create-receipt-download') {
     if (!validId(payload.repaymentId)) throw new Error('شناسهٔ رسید معتبر نیست.');
-    const { data, error } = await client.from('repayments').select('record_id,receipt_path').eq('id', payload.repaymentId).maybeSingle();
+    const { data: repayment, error } = await client.from('repayments').select('record_id,receipt_path,record_requests(requester_id)').eq('id', payload.repaymentId).maybeSingle();
     if (error) throw error;
-    if (!data?.receipt_path) throw new Error('رسیدی ثبت نشده است.');
-    await accessible(data.record_id, user.id);
-    const result = await client.storage.from('receipts').createSignedUrl(data.receipt_path, 60);
+    if (!repayment?.receipt_path) throw new Error('رسیدی ثبت نشده است.');
+    const record = await accessible(repayment.record_id, user.id);
+    if (record.kind !== 'money' && record.kind !== 'expense') throw new Error('این رکورد رسید پرداخت ندارد.');
+    const ownerId = Array.isArray(repayment.record_requests) ? repayment.record_requests[0]?.requester_id : repayment.record_requests?.requester_id;
+    const receiptPath = String(repayment.receipt_path);
+    if (!ownerId || !receiptPath.startsWith(`${ownerId}/${record.id}/`)) throw new Error('مسیر رسید معتبر نیست.');
+    const result = await client.storage.from('receipts').createSignedUrl(repayment.receipt_path, 60);
     if (result.error) throw result.error;
     return { url: result.data.signedUrl };
   }

@@ -14,8 +14,9 @@
     while(cursor<input.value.length && seen<digitsBefore) { if(/[۰-۹]/.test(input.value[cursor])) seen++; cursor++; }
     if(document.activeElement===input) input.setSelectionRange(cursor,cursor);
   }
-  function editor() {
-    return `<div class="share-editor" data-share-editor><div data-share-rows></div><div class="actions"><button type="button" class="secondary-btn" data-add-person><i class="ph ph-user-plus" aria-hidden="true"></i> یه نفر دیگه</button><button type="button" class="text-btn" data-split-even>مساوی تقسیم کن</button></div><p data-share-total role="status"></p><input type="hidden" name="shares"><small>اسم هر نفر و سهمش را بنویس؛ اگر سهم‌ها برابرند، «مساوی تقسیم کن» را بزن. مبلغ‌ها با واحد پول همین دنگ هستند.</small></div>`;
+  function editor(initial=[]) {
+    const rows=initial.length ? initial.map((item)=>row(item.name,item.amount)).join('') : row()+row();
+    return `<div class="share-editor" data-share-editor><div data-share-rows>${rows}</div><div class="actions"><button type="button" class="secondary-btn" data-add-person><i class="ph ph-user-plus" aria-hidden="true"></i> یه نفر دیگه</button><button type="button" class="text-btn" data-split-even>مساوی تقسیم کن</button></div><p data-share-total role="status"></p><input type="hidden" name="shares"><small>فقط بدهکارها را بنویس؛ اسم خودت را اضافه نکن. اگر سهم‌ها برابرند، «مساوی تقسیم کن» را بزن.</small></div>`;
   }
   function row(name='',amount='') {
     const id=crypto.randomUUID();
@@ -42,7 +43,10 @@
   }
   function mount(root) {
     root.querySelectorAll?.('[data-share-editor]:not([data-ready])').forEach(editor=>{
-      editor.dataset.ready='true'; editor.querySelector('[data-share-rows]').innerHTML=row()+row();
+      editor.dataset.ready='true';
+      const rows=editor.querySelector('[data-share-rows]');
+      if(!rows.children.length) rows.innerHTML=row()+row();
+      rows.querySelectorAll('[data-share-amount]').forEach(formatAmount);
       updateEditor(editor);
     });
   }
@@ -84,7 +88,8 @@
   new MutationObserver(records=>records.forEach(m=>m.addedNodes.forEach(n=>{if(n.nodeType===1) mount(n.parentElement || n);}))).observe(document.body,{childList:true,subtree:true});
 
   let audio=null, lastSound=0;
-  const enabled=()=>localStorage.getItem('bedeh-notification-sound')!=='off';
+  const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const enabled=()=>localStorage.getItem('bedeh-notification-sound')==='on' || (localStorage.getItem('bedeh-notification-sound')!=='off' && !reduced());
   function unlock() {
     if(!enabled()) return;
     const Audio=window.AudioContext || window.webkitAudioContext;

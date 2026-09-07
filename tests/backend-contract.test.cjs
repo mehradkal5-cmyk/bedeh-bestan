@@ -19,20 +19,31 @@ test('record command validates receipt ownership and creates short-lived downloa
   const source = read('supabase/functions/record-command/index.ts');
   assert.match(source, /create-receipt-download/);
   assert.match(source, /record\.kind !== 'money' && record\.kind !== 'expense'/);
-  assert.match(source, /receiptPath\.startsWith\(`\$\{user\.id\}\/\$\{record\.id\}\//);
+  assert.match(source, /receiptPath\.startsWith\(`\$\{ownerId\}\/\$\{record\.id\}\//);
   assert.match(source, /createSignedUrl\(repayment\.receipt_path, 60/);
 });
 
-test('every deployed Edge Function source handles OPTIONS with shared CORS headers', () => {
+test('every deployed Edge Function handles OPTIONS directly or through the authenticated wrapper', () => {
   const functionsRoot = path.join(root, 'supabase', 'functions');
+  const shared = read('supabase/functions/_shared/workflow.ts');
+  assert.match(shared, /request\.method\s*===\s*['"]OPTIONS['"]/);
+  assert.match(shared, /headers:\s*cors/);
   const directories = fs.readdirSync(functionsRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory() && entry.name !== '_shared');
   for (const directory of directories) {
     const file = path.join(functionsRoot, directory.name, 'index.ts');
     if (!fs.existsSync(file)) continue;
     const source = fs.readFileSync(file, 'utf8');
-    assert.match(source, /request\.method\s*===\s*['"]OPTIONS['"]/, `${directory.name} misses OPTIONS`);
-    assert.match(source, /headers:\s*cors|\.\.\.cors/, `${directory.name} misses CORS headers`);
+    assert.ok(/request\.method\s*===\s*['"]OPTIONS['"]/.test(source) || /authenticated\s*\(/.test(source), `${directory.name} misses OPTIONS handling`);
+    if (/request\.method\s*===\s*['"]OPTIONS['"]/.test(source)) assert.match(source, /headers:\s*cors|\.\.\.cors/, `${directory.name} misses CORS headers`);
   }
+});
+
+test('personal expense codes expire, lock during claim, and are consumed once', () => {
+  const sql = read('supabase/migrations/20260907070000_single_use_share_codes.sql');
+  assert.match(sql, /expires_at\s+timestamptz/i);
+  assert.match(sql, /expires_at\s*<=\s*now\(\)/i);
+  assert.match(sql, /share_invite_codes[\s\S]*for update/i);
+  assert.match(sql, /delete from share_invite_codes\s+where participant_id=p\.id/i);
 });
 
 test('frontend bundles never contain a service-role credential', () => {

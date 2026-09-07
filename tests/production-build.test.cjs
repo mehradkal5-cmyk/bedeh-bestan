@@ -9,22 +9,22 @@ const root = path.resolve(__dirname, '..');
 let output;
 let html;
 const runtimeFiles = [
-  'runtime-config.js', 'product-core.js', 'backend-client.js', 'app.js',
+  'runtime-config.js', 'supabase-browser.js', 'product-core.js', 'backend-client.js', 'app.js', 'friendly-controls.js',
   'record-wizard-v2.js', 'workflow-client.js', 'shared-workflow.js',
-  'creator-inbox.js', 'ui-cleanup.js', 'product-enhancements.js', 'pwa-boot.js',
+  'creator-inbox.js', 'ui-cleanup.js', 'product-enhancements.js', 'unified-workflow.js', 'pwa-boot.js',
 ];
 
 before(async () => {
   output = await fs.mkdtemp(path.join(os.tmpdir(), 'bedeh-production-test-'));
   const { build } = await import('vite');
-  await build({ root, configFile: path.join(root, 'vite.config.js'), logLevel: 'silent',
+  await build({ root, configFile: path.join(root, 'vite.config.js'), configLoader: 'runner', logLevel: 'silent',
     build: { outDir: output, emptyOutDir: true } });
   html = await fs.readFile(path.join(output, 'index.html'), 'utf8');
 });
 after(async () => { if (output) await fs.rm(output, { recursive: true, force: true }); });
 
 test('production preserves every ordered classic script and its browser syntax', async () => {
-  const tags = [...html.matchAll(/<script\b[^>]*src="([^"]+)"[^>]*><\/script>/g)];
+  const tags = [...html.matchAll(/<script\b[^>]*src="([^"]+)"[^>]*><\/script>/g)].filter((tag) => !/type="module"/.test(tag[0]));
   assert.deepEqual(tags.map((tag) => new URL(tag[1], 'https://app.example/').pathname.slice(1)), runtimeFiles);
   for (const [i, tag] of tags.entries()) {
     assert.doesNotMatch(tag[0], /type="module"|\basync\b/);
@@ -52,7 +52,7 @@ test('every HTML asset exists, including root paths for nested SPA navigation', 
 test('production output contains only explicitly approved public runtime files', async () => {
   const allowed = [...runtimeFiles, 'index.html', 'sw.js', 'offline.html', 'manifest.webmanifest',
     'icon.svg', 'styles.css', 'backend-gate.css', 'ui-cleanup.css', 'record-wizard-v2.css',
-    'layout-stability.css', 'product-enhancements.css', '_headers'];
+    'layout-stability.css', 'product-enhancements.css', 'unified-workflow.css', 'qr-code.js', '_headers'];
   assert.deepEqual((await fs.readdir(output)).sort(), allowed.sort());
 });
 

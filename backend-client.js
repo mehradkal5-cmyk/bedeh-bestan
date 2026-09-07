@@ -7,6 +7,7 @@
   const anon = String(config.supabaseAnonKey || '');
   const authKey = 'bedeh-bestan.auth.access-token';
   const refreshKey = 'bedeh-bestan.auth.refresh-token';
+  const userKey = 'bedeh-bestan.auth.user';
   // Adopt an existing tab session once, then keep login across browser restarts.
   if (!localStorage.getItem(refreshKey) && sessionStorage.getItem(refreshKey)) {
     localStorage.setItem(refreshKey, sessionStorage.getItem(refreshKey));
@@ -25,6 +26,11 @@
     'email rate limit exceeded': 'سقف ارسال ایمیل پر شده است؛ کمی بعد دوباره تلاش کنید.',
     'Password should be at least 6 characters.': 'رمز عبور باید حداقل ۸ نویسه باشد.',
   })[message] || message;
+
+  const request = (...args) => fetch(...args).catch((error) => {
+    if (error?.name === 'TypeError') throw new Error('ارتباط با سرور برقرار نشد؛ اینترنت را بررسی و دوباره تلاش کنید.');
+    throw error;
+  });
 
   const jsonHeaders = (token) => ({
     apikey: anon,
@@ -50,6 +56,7 @@
       localStorage.setItem(authKey, payload.access_token);
       if (payload.refresh_token) localStorage.setItem(refreshKey, payload.refresh_token);
       else localStorage.removeItem(refreshKey);
+      if (payload.user?.id) localStorage.setItem(userKey, JSON.stringify(payload.user));
     }
     return payload;
   };
@@ -59,6 +66,7 @@
     sessionInFlight = null;
     localStorage.removeItem(authKey);
     localStorage.removeItem(refreshKey);
+    localStorage.removeItem(userKey);
     window.dispatchEvent(new Event('bedeh-signed-out'));
   };
   window.addEventListener('storage', (event) => {
@@ -89,7 +97,7 @@
     requireConfig();
     const user = requiresSession ? await window.BedehBackend.session() : null;
     if (requiresSession && !user?.access_token) throw new Error('برای این عملیات وارد حساب شوید.');
-    return response(await fetch(`${base}/functions/v1/${name}`, {
+    return response(await request(`${base}/functions/v1/${name}`, {
       method: 'POST',
       headers: jsonHeaders(user?.access_token),
       body: JSON.stringify(body),
@@ -109,8 +117,9 @@
     if (!configured || (!token && !refreshToken)) return null;
     if (token) {
       try {
-        const user = await response(await fetch(`${base}/auth/v1/user`, { headers: jsonHeaders(token) }));
+        const user = await response(await request(`${base}/auth/v1/user`, { headers: jsonHeaders(token) }));
         if (!user.id) throw new Error('پاسخ حساب کاربری معتبر نیست.');
+        if (revision === sessionRevision) localStorage.setItem(userKey, JSON.stringify(user));
         return revision === sessionRevision ? { ...user, access_token: token } : null;
       } catch (error) {
         // A network outage is not evidence that the user signed out.
@@ -123,7 +132,7 @@
       return null;
     }
     try {
-      const refreshed = await response(await fetch(`${base}/auth/v1/token?grant_type=refresh_token`, {
+      const refreshed = await response(await request(`${base}/auth/v1/token?grant_type=refresh_token`, {
         method: 'POST',
         headers: jsonHeaders(),
         body: JSON.stringify({ refresh_token: refreshToken }),
@@ -134,7 +143,9 @@
       return { ...refreshed.user, access_token: refreshed.access_token };
     } catch (error) {
       if (revision !== sessionRevision) return null;
-      if ([400, 401, 403].includes(error.status)) {
+      const revoked = ['refresh_token_not_found', 'invalid_refresh_token', 'invalid_grant'].includes(error.code)
+        || /invalid refresh token|refresh token not found/i.test(error.message);
+      if ([401, 403].includes(error.status) || (error.status === 400 && revoked)) {
         clearSession();
         return null;
       }
@@ -144,6 +155,15 @@
 
   window.BedehBackend = {
     configured,
+
+    cachedSession() {
+      const accessToken = localStorage.getItem(authKey);
+      if (!accessToken) return null;
+      try {
+        const cached = JSON.parse(localStorage.getItem(userKey) || 'null');
+        return cached?.id ? { ...cached, access_token: accessToken } : null;
+      } catch { return null; }
+    },
 
     session() {
       if (!sessionInFlight) {
@@ -159,7 +179,7 @@
 
     async signUp({ displayName, email, password }) {
       requireConfig();
-      const body = await response(await fetch(`${base}/auth/v1/signup`, {
+      const body = await response(await request(`${base}/auth/v1/signup`, {
         method: 'POST',
         headers: jsonHeaders(),
         body: JSON.stringify({
@@ -174,7 +194,7 @@
 
     async signIn({ email, password }) {
       requireConfig();
-      const body = await response(await fetch(`${base}/auth/v1/token?grant_type=password`, {
+      const body = await response(await request(`${base}/auth/v1/token?grant_type=password`, {
         method: 'POST',
         headers: jsonHeaders(),
         body: JSON.stringify({ email: normalizedEmail(email), password }),
@@ -195,7 +215,7 @@
         if (subscription) await subscription.unsubscribe();
       } catch { /* Logout must still clear the authentication session offline. */ }
       clearSession();
-      if (configured && token) await fetch(`${base}/auth/v1/logout`, { method: 'POST', headers: jsonHeaders(token) });
+      if (configured && token) await fetch(`${base}/auth/v1/logout`, { method: 'POST', headers: jsonHeaders(token) }).catch(() => {});
     },
 
     async uploadReceipt(recordId, file) {
@@ -206,7 +226,7 @@
       if (validation) throw new Error(validation);
       const extension = ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf' })[file.type];
       const path = `${user.id}/${recordId}/${crypto.randomUUID()}.${extension}`;
-      const upload = await fetch(`${base}/storage/v1/object/receipts/${path.split('/').map(encodeURIComponent).join('/')}`, {
+      const upload = await request(`${base}/storage/v1/object/receipts/${path.split('/').map(encodeURIComponent).join('/')}`, {
         method: 'POST',
         headers: {
           apikey: anon,

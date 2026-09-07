@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import path from 'node:path';
-import { localPath, publicConfigSource, readPublicFile, runtimeFiles, verifyDist } from './production-assets.mjs';
+import { bundledFiles, localPath, publicConfigSource, readPublicFile, runtimeFiles, verifyDist } from './production-assets.mjs';
 
 // Vite normally leaves classic script URLs untouched without emitting their files.
 // Hide only allowlisted local tags from HTML bundling, then restore them in place.
@@ -21,8 +21,9 @@ export function classicAssetsPlugin(env = {}) {
       sources.set('runtime-config.js', publicConfigSource(sources.get('runtime-config.js'), env));
       const hash = createHash('sha256').update(await readPublicFile(config.root, 'index.html'));
       for (const [file, source] of sources) hash.update(file).update(source);
+      for (const file of bundledFiles) hash.update(file).update(await readPublicFile(config.root, file));
       version = hash.digest('hex').slice(0, 16);
-      const precache = ['/', '/index.html', ...runtimeFiles.filter((file) => !['runtime-config.js', 'sw.js'].includes(file)).map(assetUrl)];
+      const precache = ['/', '/index.html', ...runtimeFiles.filter((file) => !['runtime-config.js', 'sw.js'].includes(file)).map(assetUrl), ...bundledFiles.map(assetUrl)];
       const worker = sources.get('sw.js')
         .replace(/^const CACHE = .*;$/m, `const CACHE = 'bedeh-bestan-${version}';`)
         .replace(/^const ASSETS = .*;$/m, `const ASSETS = ${JSON.stringify(precache)};`);
@@ -35,6 +36,7 @@ export function classicAssetsPlugin(env = {}) {
       order: 'pre',
       handler(html) {
         return html.replace(/<script\b[^>]*\bsrc=["'][^"']+["'][^>]*>\s*<\/script>|<link\b[^>]*\bhref=["'][^"']+["'][^>]*>/gi, (tag) => {
+          if (/^<script\b/i.test(tag) && /\btype=["']module["']/i.test(tag)) return tag;
           const reference = tag.match(/\b(?:src|href)=["']([^"']+)["']/)[1];
           const file = localPath(reference);
           if (!file) return tag;
