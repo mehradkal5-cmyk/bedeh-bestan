@@ -1,4 +1,4 @@
-const CACHE = 'bedeh-bestan-v30';
+const CACHE = 'bedeh-bestan-v31';
 const ASSETS = ['./', './index.html', './styles.css', './backend-gate.css', './ui-cleanup.css', './record-wizard-v2.css', './layout-stability.css', './product-enhancements.css', './unified-workflow.css', './app.js', './supabase-browser.js', './product-core.js', './record-wizard-v2.js', './backend-client.js', './friendly-controls.js', './workflow-client.js', './shared-workflow.js', './creator-inbox.js', './ui-cleanup.js', './product-enhancements.js', './unified-workflow.js', './qr-code.js', './pwa-boot.js', './manifest.webmanifest', './icon.svg', './offline.html'];
 
 const precacheRequest = (url) => new Request(url, { cache: 'reload', headers: /\.css(?:\?|$)/.test(url) ? { Accept: 'text/css' } : undefined });
